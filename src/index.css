@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --color-background: #fdf6f0;
+  --color-primary: #ffb7b2;
+  --color-secondary: #b2e2f2;
+  --color-accent: #d1e9cf;
+  --color-text: #4a4a4a;
+  --color-muted: #8e8e8e;
+  
+  --font-cute: "Quicksand", sans-serif;
+}
+
+:root {
+  --font-cute: 'Quicksand', sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-cute);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #fdf6f0;
+  color: #4a4a4a;
+}
+
+@layer components {
+  .btn-cute {
+    @apply px-6 py-3 rounded-2xl font-bold transition-all duration-300 active:scale-95 shadow-lg hover:shadow-xl flex items-center gap-2 border-b-4 border-black/10 active:border-b-0;
+  }
+  
+  .card-cute {
+    @apply bg-white/70 backdrop-blur-md rounded-[2.5rem] p-6 shadow-xl border-2 border-white/50 transition-all duration-300;
+  }
+
+  .glass-panel {
+    @apply bg-white/40 backdrop-blur-xl border border-white/60 shadow-2xl;
+  }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); opacity: 0; }
+  50% { opacity: 0.8; }
+  100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+}
+
+.floating-heart {
+  position: absolute;
+  pointer-events: none;
+  animation: float 15s linear infinite;
+  z-index: 0;
+}
+
+/* Custom scrollbar for a cute feel */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #ffb7b2, #b2e2f2);
+  border-radius: 20px;
+  border: 3px solid #fdf6f0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ff9e99;
+}
