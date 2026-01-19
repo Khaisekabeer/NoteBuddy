@@ -1,7 +1,15 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, 'notebuddy.db'), { verbose: console.log });
+const fs = require('fs');
+
+const DB_DIR = process.env.DB_PATH ? path.dirname(process.env.DB_PATH) : __dirname;
+if (!fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR, { recursive: true });
+}
+
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'notebuddy.db');
+const db = new Database(dbPath, { verbose: console.log });
 
 // Create Tables
 db.exec(`
