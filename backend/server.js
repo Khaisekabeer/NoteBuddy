@@ -49,7 +49,10 @@ const authenticateToken = (req, res, next) => {
   if (!token) return res.status(401).json({ message: 'No token provided' });
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
+    if (err) {
+      console.error('JWT Verify Error:', err.message);
+      return res.status(403).json({ message: 'Invalid token' });
+    }
     req.user = user;
     next();
   });
@@ -59,18 +62,27 @@ const authenticateToken = (req, res, next) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
+  console.log('Login attempt for:', username);
   try {
     const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
     const user = result.rows[0];
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user) {
+      console.warn('User not found:', username);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      console.warn('Password mismatch for:', username);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET);
     res.json({ token, user: { id: user.id, username: user.username } });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', err);
+    res.status(500).json({ message: 'Server error: ' + err.message });
   }
 });
 
@@ -92,6 +104,7 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
     await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, req.user.id]);
     res.json({ message: 'Password changed successfully! ✨' });
   } catch (err) {
+    console.error('Change password error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -118,6 +131,7 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
 
     res.json(decryptedNotes);
   } catch (err) {
+    console.error('Get notes error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -152,6 +166,7 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
 
     res.status(201).json({ id: noteId, title, color, is_revealed });
   } catch (err) {
+    console.error('Create note error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -173,6 +188,7 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
     await db.query('UPDATE notes SET title = $1, content = $2, color = $3 WHERE id = $4', [encryptedTitle, encryptedContent, color, id]);
     res.json({ message: 'Note updated! ✨' });
   } catch (err) {
+    console.error('Update note error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -198,6 +214,7 @@ app.patch('/api/notes/:id/reveal', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Note revealed! 🎉' });
   } catch (err) {
+    console.error('Reveal note error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -214,6 +231,7 @@ app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
     await db.query('DELETE FROM notes WHERE id = $1', [id]);
     res.json({ message: 'Note deleted' });
   } catch (err) {
+    console.error('Delete note error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
