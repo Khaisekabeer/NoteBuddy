@@ -8,17 +8,23 @@ if (!databaseUrl) {
   try {
     const url = new URL(databaseUrl);
     console.log(`📡 Connecting to database: ${url.hostname}`);
+    if (url.hostname.includes('supabase.co') && !url.hostname.includes('pooler')) {
+        console.warn('⚠️ WARNING: You are using a direct Supabase URL. This often fails on Render with ENETUNREACH.');
+        console.warn('👉 PLEASE USE THE POOLER URL INSTEAD: aws-0-ap-southeast-1.pooler.supabase.com');
+    }
   } catch (e) {
     console.error('❌ FATAL: Invalid DATABASE_URL format!');
   }
 }
 
-// Optimized for Supabase Pooler on Render
+// Optimized for Render (IPv4 only)
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: {
     rejectUnauthorized: false
   },
+  // Force IPv4 if the hostname resolves to both
+  family: 4, 
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
@@ -30,7 +36,7 @@ const initDb = async () => {
   try {
     console.log('⏳ Initializing database tables...');
     
-    // Test connection
+    // Attempt to connect
     const client = await pool.connect();
     console.log('✅ Connection to pool established!');
     client.release();
@@ -72,7 +78,10 @@ const initDb = async () => {
     console.log('🚀 Database initialized successfully!');
   } catch (err) {
     console.error('❌ Error initializing database:', err.message);
-    console.error('👉 Internal code:', err.code);
+    console.error('👉 Error Code:', err.code);
+    if (err.code === 'ENETUNREACH') {
+        console.error('💡 TIP: This is a network error. You MUST use the IPv4 Pooler URL in Render dashboard.');
+    }
     throw err;
   }
 };
