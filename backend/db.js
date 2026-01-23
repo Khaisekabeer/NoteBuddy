@@ -1,5 +1,8 @@
 const { Pool } = require('pg');
 
+// Force Node to ignore self-signed cert errors at the process level for this specific database connection
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
@@ -13,16 +16,15 @@ if (!databaseUrl) {
   }
 }
 
-// Optimized specifically for Supabase Transaction Pooler (Port 6543)
+// Aggressive SSL bypass for Supabase/Render
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false // This SHOULD work, but Node 20+ is stricter
   },
-  // These settings are critical for Transaction Mode (Port 6543)
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 });
 
 const query = (text, params) => pool.query(text, params);
@@ -73,8 +75,8 @@ const initDb = async () => {
     console.log('🚀 Database initialized successfully!');
   } catch (err) {
     console.error('❌ Error initializing database:', err.message);
-    if (err.message.includes('Tenant or user not found')) {
-        console.error('💡 TIP: Check your DATABASE_URL username. It must be in the format: postgres.[YOUR_PROJECT_ID]');
+    if (err.message.includes('self-signed certificate')) {
+        console.error('💡 TIP: Try removing "?sslmode=require" from your Render DATABASE_URL if it is present.');
     }
     throw err;
   }
