@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const CryptoJS = require('crypto-js');
 const path = require('path');
-const db = require('./db');
+const { supabase, initDb } = require('./db');
 
 const app = express();
 const http = require('http').createServer(app);
@@ -64,8 +64,13 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   console.log('Login attempt for:', username);
   try {
-    const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
-    const user = result.rows[0];
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (error) throw error;
 
     if (!user) {
       console.warn('User not found:', username);
@@ -93,15 +98,22 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   try {
-    const result = await db.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
-    const user = result.rows[0];
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
 
     if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
       return res.status(401).json({ message: 'Current password incorrect' });
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, req.user.id]);
+    await supabase
+      .from('users')
+      .update({ password: hashedNewPassword })
+      .eq('id', req.user.id);
+      
     res.json({ message: 'Password changed successfully! ✨' });
   } catch (err) {
     console.error('Change password error:', err);
@@ -113,20 +125,23 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
 
 app.get('/api/notes', authenticateToken, async (req, res) => {
   try {
-    const result = await db.query(`
-      SELECT n.*, u.username as author_name 
-      FROM notes n
-      JOIN users u ON n.author_id = u.id
-      WHERE n.author_id = $1 
-      OR (n.recipient_id = $2 AND n.is_revealed = true)
-      ORDER BY n.created_at DESC
-    `, [req.user.id, req.user.id]);
+    const { data: notes, error } = await supabase
+      .from('notes')
+      .select(`
+        *,
+        users!notes_author_id_fkey(username)
+      `)
+      .or(`author_id.eq.${req.user.id},and(recipient_id.eq.${req.user.id},is_revealed.eq.true)`)
+      .order('created_at', { ascending: false });
 
-    const decryptedNotes = result.rows.map(n => ({
+    if (error) throw error;
+
+    const decryptedNotes = notes.map(n => ({
       ...n,
+      author_name: n.users?.username,
       title: decrypt(n.title),
       content: decrypt(n.content),
-      is_revealed: n.is_revealed ? 1 : 0 // Keep frontend compatibility
+      is_revealed: n.is_revealed ? 1 : 0
     }));
 
     res.json(decryptedNotes);
@@ -142,29 +157,41 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
   try {
     let recipient_id = null;
     if (recipient_username) {
-      const friendResult = await db.query('SELECT id FROM users WHERE username = $1', [recipient_username]);
-      if (friendResult.rows[0]) recipient_id = friendResult.rows[0].id;
+      const { data: friend } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', recipient_username)
+        .maybeSingle();
+      if (friend) recipient_id = friend.id;
     }
 
     const encryptedTitle = encrypt(title);
     const encryptedContent = encrypt(content);
 
-    const result = await db.query(
-      'INSERT INTO notes (title, content, color, author_id, recipient_id, is_revealed) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [encryptedTitle, encryptedContent, color || 'bg-[#ffb7b2]', req.user.id, recipient_id, is_revealed ? true : false]
-    );
-    
-    const noteId = result.rows[0].id;
+    const { data: note, error } = await supabase
+      .from('notes')
+      .insert({
+        title: encryptedTitle,
+        content: encryptedContent,
+        color: color || 'bg-[#ffb7b2]',
+        author_id: req.user.id,
+        recipient_id,
+        is_revealed: is_revealed || false
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     if (is_revealed && recipient_id) {
       io.to(`user_${recipient_id}`).emit('note_revealed', {
-        id: noteId,
+        id: note.id,
         title: title,
         author_id: req.user.id
       });
     }
 
-    res.status(201).json({ id: noteId, title, color, is_revealed });
+    res.status(201).json({ id: note.id, title, color, is_revealed });
   } catch (err) {
     console.error('Create note error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -176,8 +203,11 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
   const { title, content, color } = req.body;
   
   try {
-    const result = await db.query('SELECT * FROM notes WHERE id = $1', [id]);
-    const note = result.rows[0];
+    const { data: note } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('id', id)
+      .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
     if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can edit' });
@@ -185,7 +215,15 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
     const encryptedTitle = encrypt(title);
     const encryptedContent = encrypt(content);
 
-    await db.query('UPDATE notes SET title = $1, content = $2, color = $3 WHERE id = $4', [encryptedTitle, encryptedContent, color, id]);
+    await supabase
+      .from('notes')
+      .update({
+        title: encryptedTitle,
+        content: encryptedContent,
+        color
+      })
+      .eq('id', id);
+
     res.json({ message: 'Note updated! ✨' });
   } catch (err) {
     console.error('Update note error:', err);
@@ -196,13 +234,19 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
 app.patch('/api/notes/:id/reveal', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await db.query('SELECT * FROM notes WHERE id = $1', [id]);
-    const note = result.rows[0];
+    const { data: note } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('id', id)
+      .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
     if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can reveal' });
 
-    await db.query('UPDATE notes SET is_revealed = true WHERE id = $1', [id]);
+    await supabase
+      .from('notes')
+      .update({ is_revealed: true })
+      .eq('id', id);
 
     if (note.recipient_id) {
       io.to(`user_${note.recipient_id}`).emit('note_revealed', {
@@ -222,13 +266,20 @@ app.patch('/api/notes/:id/reveal', authenticateToken, async (req, res) => {
 app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await db.query('SELECT * FROM notes WHERE id = $1', [id]);
-    const note = result.rows[0];
+    const { data: note } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('id', id)
+      .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
     if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can delete' });
 
-    await db.query('DELETE FROM notes WHERE id = $1', [id]);
+    await supabase
+      .from('notes')
+      .delete()
+      .eq('id', id);
+
     res.json({ message: 'Note deleted' });
   } catch (err) {
     console.error('Delete note error:', err);
@@ -242,7 +293,7 @@ app.use((req, res) => {
 });
 
 // Initialize DB and start server
-db.initDb().then(() => {
+initDb().then(() => {
   http.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
