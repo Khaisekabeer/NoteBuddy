@@ -1,5 +1,17 @@
 const { Pool } = require('pg');
 
+// Debugging: Log connection presence (not the full string for security)
+if (!process.env.DATABASE_URL) {
+  console.error('❌ FATAL: DATABASE_URL is not defined in environment variables!');
+} else {
+  try {
+    const url = new URL(process.env.DATABASE_URL);
+    console.log(`📡 Attempting to connect to database at: ${url.hostname}`);
+  } catch (e) {
+    console.error('❌ FATAL: DATABASE_URL is not a valid URL format!');
+  }
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
@@ -11,6 +23,7 @@ const query = (text, params) => pool.query(text, params);
 
 const initDb = async () => {
   try {
+    console.log('⏳ Initializing database tables...');
     // Create Tables
     await query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -44,12 +57,16 @@ const initDb = async () => {
       if (existing.rows.length === 0) {
         const hashedPassword = await bcrypt.hash(u.password, 10);
         await query('INSERT INTO users (username, password) VALUES ($1, $2)', [u.username, hashedPassword]);
-        console.log(`User ${u.username} seeded!`);
+        console.log(`✅ User ${u.username} seeded!`);
       }
     }
-    console.log('Database initialized successfully! 🚀');
+    console.log('🚀 Database initialized successfully!');
   } catch (err) {
-    console.error('Error initializing database:', err);
+    console.error('❌ Error initializing database:', err.message);
+    if (err.message.includes('ENOTFOUND')) {
+      console.error('👉 Hint: The database hostname could not be found. Check if your DATABASE_URL is correct and has no typos.');
+    }
+    throw err; // Re-throw to catch it in server.js
   }
 };
 
