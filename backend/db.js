@@ -1,60 +1,60 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { Pool } = require('pg');
 
-const fs = require('fs');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
-const DB_DIR = process.env.DB_PATH ? path.dirname(process.env.DB_PATH) : __dirname;
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true });
-}
+const query = (text, params) => pool.query(text, params);
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'notebuddy.db');
-const db = new Database(dbPath, { verbose: console.log });
+const initDb = async () => {
+  try {
+    // Create Tables
+    await query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
 
-// Create Tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+      CREATE TABLE IF NOT EXISTS notes (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        color TEXT DEFAULT 'bg-[#ffb7b2]',
+        author_id INTEGER NOT NULL REFERENCES users(id),
+        recipient_id INTEGER REFERENCES users(id),
+        is_revealed BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-  CREATE TABLE IF NOT EXISTS notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    color TEXT DEFAULT 'bg-[#ffb7b2]',
-    author_id INTEGER NOT NULL,
-    recipient_id INTEGER,
-    is_revealed BOOLEAN DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (author_id) REFERENCES users (id),
-    FOREIGN KEY (recipient_id) REFERENCES users (id)
-  );
-`);
+    // Seed default users
+    const bcrypt = require('bcryptjs');
+    const users = [
+      { username: 'khai', password: '123' },
+      { username: 'bestie', password: '123' }
+    ];
 
-// Seed default users if they don't exist
-const bcrypt = require('bcryptjs');
-const seedUsers = () => {
-  const users = [
-    { username: 'khai', password: '123' },
-    { username: 'bestie', password: '123' }
-  ];
-
-  const checkUser = db.prepare('SELECT * FROM users WHERE username = ?');
-  const insertUser = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)');
-
-  users.forEach(u => {
-    const existing = checkUser.get(u.username);
-    if (!existing) {
-      const hashedPassword = bcrypt.hashSync(u.password, 10);
-      insertUser.run(u.username, hashedPassword);
-      console.log(`User ${u.username} seeded!`);
+    for (const u of users) {
+      const existing = await query('SELECT * FROM users WHERE username = $1', [u.username]);
+      if (existing.rows.length === 0) {
+        const hashedPassword = await bcrypt.hash(u.password, 10);
+        await query('INSERT INTO users (username, password) VALUES ($1, $2)', [u.username, hashedPassword]);
+        console.log(`User ${u.username} seeded!`);
+      }
     }
-  });
+    console.log('Database initialized successfully! 🚀');
+  } catch (err) {
+    console.error('Error initializing database:', err);
+  }
 };
 
-seedUsers();
-
-module.exports = db;
+module.exports = {
+  query,
+  initDb,
+  pool
+};

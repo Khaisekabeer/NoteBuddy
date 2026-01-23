@@ -59,14 +59,19 @@ const authenticateToken = (req, res, next) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+  try {
+    const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = result.rows[0];
 
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET);
+    res.json({ token, user: { id: user.id, username: user.username } });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET);
-  res.json({ token, user: { id: user.id, username: user.username } });
 });
 
 app.get('/api/auth/me', authenticateToken, (req, res) => {
@@ -75,108 +80,142 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 
 app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  try {
+    const result = await db.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    const user = result.rows[0];
 
-  if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
-    return res.status(401).json({ message: 'Current password incorrect' });
+    if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+      return res.status(401).json({ message: 'Current password incorrect' });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, req.user.id]);
+    res.json({ message: 'Password changed successfully! ✨' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedNewPassword, req.user.id);
-  res.json({ message: 'Password changed successfully! ✨' });
 });
 
 // --- NOTE ROUTES ---
 
-app.get('/api/notes', authenticateToken, (req, res) => {
-  const notes = db.prepare(`
-    SELECT n.*, u.username as author_name 
-    FROM notes n
-    JOIN users u ON n.author_id = u.id
-    WHERE n.author_id = ? 
-    OR (n.recipient_id = ? AND n.is_revealed = 1)
-    ORDER BY n.created_at DESC
-  `).all(req.user.id, req.user.id);
+app.get('/api/notes', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT n.*, u.username as author_name 
+      FROM notes n
+      JOIN users u ON n.author_id = u.id
+      WHERE n.author_id = $1 
+      OR (n.recipient_id = $2 AND n.is_revealed = true)
+      ORDER BY n.created_at DESC
+    `, [req.user.id, req.user.id]);
 
-  const decryptedNotes = notes.map(n => ({
-    ...n,
-    title: decrypt(n.title),
-    content: decrypt(n.content)
-  }));
+    const decryptedNotes = result.rows.map(n => ({
+      ...n,
+      title: decrypt(n.title),
+      content: decrypt(n.content),
+      is_revealed: n.is_revealed ? 1 : 0 // Keep frontend compatibility
+    }));
 
-  res.json(decryptedNotes);
+    res.json(decryptedNotes);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
-app.post('/api/notes', authenticateToken, (req, res) => {
+app.post('/api/notes', authenticateToken, async (req, res) => {
   const { title, content, color, recipient_username, is_revealed } = req.body;
   
-  let recipient_id = null;
-  if (recipient_username) {
-    const friend = db.prepare('SELECT id FROM users WHERE username = ?').get(recipient_username);
-    if (friend) recipient_id = friend.id;
+  try {
+    let recipient_id = null;
+    if (recipient_username) {
+      const friendResult = await db.query('SELECT id FROM users WHERE username = $1', [recipient_username]);
+      if (friendResult.rows[0]) recipient_id = friendResult.rows[0].id;
+    }
+
+    const encryptedTitle = encrypt(title);
+    const encryptedContent = encrypt(content);
+
+    const result = await db.query(
+      'INSERT INTO notes (title, content, color, author_id, recipient_id, is_revealed) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [encryptedTitle, encryptedContent, color || 'bg-[#ffb7b2]', req.user.id, recipient_id, is_revealed ? true : false]
+    );
+    
+    const noteId = result.rows[0].id;
+
+    if (is_revealed && recipient_id) {
+      io.to(`user_${recipient_id}`).emit('note_revealed', {
+        id: noteId,
+        title: title,
+        author_id: req.user.id
+      });
+    }
+
+    res.status(201).json({ id: noteId, title, color, is_revealed });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const encryptedTitle = encrypt(title);
-  const encryptedContent = encrypt(content);
-
-  const stmt = db.prepare('INSERT INTO notes (title, content, color, author_id, recipient_id, is_revealed) VALUES (?, ?, ?, ?, ?, ?)');
-  const info = stmt.run(encryptedTitle, encryptedContent, color || 'bg-[#ffb7b2]', req.user.id, recipient_id, is_revealed ? 1 : 0);
-  
-  if (is_revealed && recipient_id) {
-    io.to(`user_${recipient_id}`).emit('note_revealed', {
-      id: info.lastInsertRowid,
-      title: title,
-      author_id: req.user.id
-    });
-  }
-
-  res.status(201).json({ id: info.lastInsertRowid, title, color, is_revealed });
 });
 
-app.put('/api/notes/:id', authenticateToken, (req, res) => {
+app.put('/api/notes/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { title, content, color } = req.body;
-  const note = db.prepare('SELECT * FROM notes WHERE id = ?').get(id);
+  
+  try {
+    const result = await db.query('SELECT * FROM notes WHERE id = $1', [id]);
+    const note = result.rows[0];
 
-  if (!note) return res.status(404).json({ message: 'Note not found' });
-  if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can edit' });
+    if (!note) return res.status(404).json({ message: 'Note not found' });
+    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can edit' });
 
-  const encryptedTitle = encrypt(title);
-  const encryptedContent = encrypt(content);
+    const encryptedTitle = encrypt(title);
+    const encryptedContent = encrypt(content);
 
-  db.prepare('UPDATE notes SET title = ?, content = ?, color = ? WHERE id = ?').run(encryptedTitle, encryptedContent, color, id);
-  res.json({ message: 'Note updated! ✨' });
-});
-
-app.patch('/api/notes/:id/reveal', authenticateToken, (req, res) => {
-  const { id } = req.params;
-  const note = db.prepare('SELECT * FROM notes WHERE id = ?').get(id);
-
-  if (!note) return res.status(404).json({ message: 'Note not found' });
-  if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can reveal' });
-
-  db.prepare('UPDATE notes SET is_revealed = 1 WHERE id = ?').run(id);
-
-  if (note.recipient_id) {
-    io.to(`user_${note.recipient_id}`).emit('note_revealed', {
-      id: note.id,
-      title: decrypt(note.title),
-      author_id: note.author_id
-    });
+    await db.query('UPDATE notes SET title = $1, content = $2, color = $3 WHERE id = $4', [encryptedTitle, encryptedContent, color, id]);
+    res.json({ message: 'Note updated! ✨' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
-
-  res.json({ message: 'Note revealed! 🎉' });
 });
 
-app.delete('/api/notes/:id', authenticateToken, (req, res) => {
+app.patch('/api/notes/:id/reveal', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const note = db.prepare('SELECT * FROM notes WHERE id = ?').get(id);
+  try {
+    const result = await db.query('SELECT * FROM notes WHERE id = $1', [id]);
+    const note = result.rows[0];
 
-  if (!note) return res.status(404).json({ message: 'Note not found' });
-  if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can delete' });
+    if (!note) return res.status(404).json({ message: 'Note not found' });
+    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can reveal' });
 
-  db.prepare('DELETE FROM notes WHERE id = ?').run(id);
-  res.json({ message: 'Note deleted' });
+    await db.query('UPDATE notes SET is_revealed = true WHERE id = $1', [id]);
+
+    if (note.recipient_id) {
+      io.to(`user_${note.recipient_id}`).emit('note_revealed', {
+        id: note.id,
+        title: decrypt(note.title),
+        author_id: note.author_id
+      });
+    }
+
+    res.json({ message: 'Note revealed! 🎉' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await db.query('SELECT * FROM notes WHERE id = $1', [id]);
+    const note = result.rows[0];
+
+    if (!note) return res.status(404).json({ message: 'Note not found' });
+    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can delete' });
+
+    await db.query('DELETE FROM notes WHERE id = $1', [id]);
+    res.json({ message: 'Note deleted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 app.use(express.static(path.join(__dirname, '../dist')));
@@ -184,6 +223,12 @@ app.use((req, res) => {
   res.sendFile(path.resolve(__dirname, '../dist/index.html'));
 });
 
-http.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+// Initialize DB and start server
+db.initDb().then(() => {
+  http.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
 });
