@@ -7,27 +7,22 @@ if (!databaseUrl) {
 } else {
   try {
     const url = new URL(databaseUrl);
-    console.log(`📡 Connecting to database: ${url.hostname}`);
-    if (url.hostname.includes('supabase.co') && !url.hostname.includes('pooler')) {
-        console.warn('⚠️ WARNING: You are using a direct Supabase URL. This often fails on Render with ENETUNREACH.');
-        console.warn('👉 PLEASE USE THE POOLER URL INSTEAD: aws-0-ap-southeast-1.pooler.supabase.com');
-    }
+    console.log(`📡 Connecting to database: ${url.hostname} on port ${url.port}`);
   } catch (e) {
     console.error('❌ FATAL: Invalid DATABASE_URL format!');
   }
 }
 
-// Optimized for Render (IPv4 only)
+// Optimized specifically for Supabase Transaction Pooler (Port 6543)
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: {
     rejectUnauthorized: false
   },
-  // Force IPv4 if the hostname resolves to both
-  family: 4, 
-  max: 10,
+  // These settings are critical for Transaction Mode (Port 6543)
+  max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 5000,
 });
 
 const query = (text, params) => pool.query(text, params);
@@ -36,9 +31,9 @@ const initDb = async () => {
   try {
     console.log('⏳ Initializing database tables...');
     
-    // Attempt to connect
+    // Explicitly test connectivity
     const client = await pool.connect();
-    console.log('✅ Connection to pool established!');
+    console.log('✅ Connection to Supabase established!');
     client.release();
 
     await query(`
@@ -78,9 +73,8 @@ const initDb = async () => {
     console.log('🚀 Database initialized successfully!');
   } catch (err) {
     console.error('❌ Error initializing database:', err.message);
-    console.error('👉 Error Code:', err.code);
-    if (err.code === 'ENETUNREACH') {
-        console.error('💡 TIP: This is a network error. You MUST use the IPv4 Pooler URL in Render dashboard.');
+    if (err.message.includes('Tenant or user not found')) {
+        console.error('💡 TIP: Check your DATABASE_URL username. It must be in the format: postgres.[YOUR_PROJECT_ID]');
     }
     throw err;
   }
