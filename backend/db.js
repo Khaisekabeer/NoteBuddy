@@ -13,17 +13,15 @@ if (!databaseUrl) {
   }
 }
 
-// More aggressive SSL bypass for Render/Supabase
+// Optimized for Supabase Pooler on Render
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: {
     rejectUnauthorized: false
-  }
-});
-
-// Force the internal client to also ignore unauthorized as a backup
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+  },
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 const query = (text, params) => pool.query(text, params);
@@ -32,7 +30,7 @@ const initDb = async () => {
   try {
     console.log('⏳ Initializing database tables...');
     
-    // Test connection first
+    // Test connection
     const client = await pool.connect();
     console.log('✅ Connection to pool established!');
     client.release();
@@ -74,9 +72,7 @@ const initDb = async () => {
     console.log('🚀 Database initialized successfully!');
   } catch (err) {
     console.error('❌ Error initializing database:', err.message);
-    if (err.code === 'SELF_SIGNED_CERT_IN_CHAIN' || err.message.includes('certificate')) {
-        console.error('👉 Hint: Still hitting SSL certificate issues. Trying to force bypass...');
-    }
+    console.error('👉 Internal code:', err.code);
     throw err;
   }
 };
