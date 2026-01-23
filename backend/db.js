@@ -1,41 +1,53 @@
 const { Pool } = require('pg');
+const dns = require('dns');
+const util = require('util');
 
-// Force Node to ignore self-signed cert errors at the process level for this specific database connection
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  console.error('❌ FATAL: DATABASE_URL is not defined!');
-} else {
-  try {
-    const url = new URL(databaseUrl);
-    console.log(`📡 Connecting to database: ${url.hostname} on port ${url.port}`);
-  } catch (e) {
-    console.error('❌ FATAL: Invalid DATABASE_URL format!');
-  }
-}
-
-// Aggressive SSL bypass for Supabase/Render
-const pool = new Pool({
-  connectionString: databaseUrl,
-  ssl: {
-    rejectUnauthorized: false // This SHOULD work, but Node 20+ is stricter
-  },
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
-
-const query = (text, params) => pool.query(text, params);
+const resolve4 = util.promisify(dns.resolve4);
 
 const initDb = async () => {
   try {
-    console.log('⏳ Initializing database tables...');
+    console.log('⏳ Initializing database...');
+    
+    let connectionString = process.env.DATABASE_URL;
+    
+    if (!connectionString) {
+        throw new Error('DATABASE_URL is missing!');
+    }
+
+    // Parse the URL
+    const url = new URL(connectionString);
+    const originalHost = url.hostname;
+    
+    console.log(`� Resolving IPv4 for: ${originalHost}`);
+    
+    try {
+        // FORCE IPv4 Resolution
+        const addresses = await resolve4(originalHost);
+        if (addresses && addresses.length > 0) {
+            const ip = addresses[0];
+            console.log(`✅ Found IPv4: ${ip}`);
+            // Replace hostname with IP in the host property, but keep original for SNI if needed
+            url.hostname = ip;
+            connectionString = url.toString();
+        }
+    } catch (dnsErr) {
+        console.warn(`⚠️ Could not resolve IPv4 for ${originalHost}, sticking with original host.`);
+        console.warn(dnsErr.message);
+    }
+
+    const pool = new Pool({
+      connectionString: connectionString,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      connectionTimeoutMillis: 10000,
+    });
+
+    const query = (text, params) => pool.query(text, params);
     
     // Explicitly test connectivity
     const client = await pool.connect();
-    console.log('✅ Connection to Supabase established!');
+    console.log(`✅ Connected successfully to ${originalHost} (via IPv4)!`);
     client.release();
 
     await query(`
@@ -73,17 +85,29 @@ const initDb = async () => {
       }
     }
     console.log('🚀 Database initialized successfully!');
+    
+    // Assign query to module.exports for the server to use
+    module.exports.query = query;
+    module.exports.pool = pool; // Export pool if needed
+
   } catch (err) {
     console.error('❌ Error initializing database:', err.message);
-    if (err.message.includes('self-signed certificate')) {
-        console.error('💡 TIP: Try removing "?sslmode=require" from your Render DATABASE_URL if it is present.');
-    }
     throw err;
   }
 };
 
+// Export a temporary query function that waits for init
+let pool;
+const queryProxy = async (text, params) => {
+    if (!pool) {
+         // Fallback just in case initDb hasn't finished (shouldn't happen with await in server.js)
+         const { Pool } = require('pg');
+         pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    }
+    return pool.query(text, params);
+};
+
 module.exports = {
-  query,
-  initDb,
-  pool
+  query: queryProxy,
+  initDb
 };
