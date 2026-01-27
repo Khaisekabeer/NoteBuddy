@@ -41,10 +41,17 @@ function cn(...inputs) {
 
 const NoteCard = ({ note, onReveal, currentUser, onDelete, onEdit }) => {
   const isOwner = note.author_id === currentUser.id;
+  const [isExpanded, setIsExpanded] = React.useState(false);
   
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getPreview = (text) => {
+    const words = text.split(' ');
+    if (words.length <= 5) return text;
+    return words.slice(0, 5).join(' ') + '...';
   };
 
   const handleRevealClick = () => {
@@ -55,23 +62,23 @@ const NoteCard = ({ note, onReveal, currentUser, onDelete, onEdit }) => {
 
   return (
     <motion.div 
-      layout
       initial={{ opacity: 0, scale: 0.9, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9, y: 20 }}
       whileHover={{ y: -10, rotateZ: 1, scale: 1.02, transition: { type: "spring", stiffness: 300 } }}
       className={cn(
-        "card-cute min-h-[220px] flex flex-col justify-between relative group shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-t-2 border-white/80",
+        "card-cute min-h-[220px] flex flex-col justify-between relative group shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-t-2 border-white/80 cursor-pointer transition-all duration-300",
         note.color
       )}
+      onClick={() => setIsExpanded(!isExpanded)}
     >
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
+      <div className="absolute top-4 right-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex gap-2 z-10">
         {isOwner && (
           <>
-            <button onClick={() => onEdit(note)} className="p-2 bg-white/80 hover:bg-white rounded-full text-primary shadow-md hover:scale-110 transition-all">
+            <button onClick={(e) => { e.stopPropagation(); onEdit(note); }} className="p-2 bg-white/80 hover:bg-white rounded-full text-primary shadow-md hover:scale-110 transition-all">
               <Edit2 size={16} />
             </button>
-            <button onClick={() => onDelete(note.id)} className="p-2 bg-white/80 hover:bg-white rounded-full text-red-500 shadow-md hover:scale-110 transition-all">
+            <button onClick={(e) => { e.stopPropagation(); onDelete(note.id); }} className="p-2 bg-white/80 hover:bg-white rounded-full text-red-500 shadow-md hover:scale-110 transition-all">
               <Trash2 size={16} />
             </button>
           </>
@@ -91,9 +98,15 @@ const NoteCard = ({ note, onReveal, currentUser, onDelete, onEdit }) => {
           <span className="text-[10px] font-black text-gray-500 bg-white/40 px-2 py-1 rounded-full">{formatDate(note.created_at)}</span>
         </div>
         
-        <p className="text-sm leading-relaxed font-bold text-gray-800 bg-white/20 p-3 rounded-2xl backdrop-blur-sm border border-white/30">
-          {note.content}
+        <p className="text-sm leading-relaxed font-bold text-gray-800 bg-white/20 p-3 rounded-2xl backdrop-blur-sm border border-white/30 break-words">
+          {isExpanded ? note.content : getPreview(note.content)}
         </p>
+        
+        {!isExpanded && note.content.split(' ').length > 5 && (
+          <p className="text-xs text-primary font-black mt-2 text-center">
+            Tap to read more ↓
+          </p>
+        )}
       </div>
 
       <div className="flex justify-between items-center mt-6 pt-4 border-t border-black/10">
@@ -108,10 +121,10 @@ const NoteCard = ({ note, onReveal, currentUser, onDelete, onEdit }) => {
         
         {isOwner && !note.is_revealed && (
           <button 
-            onClick={handleRevealClick}
+            onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
             className="flex items-center gap-2 text-xs bg-primary text-white hover:bg-primary-dark px-4 py-2 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-4 border-black/20"
           >
-            <Send size={12} /> Reveal to Her
+            <Send size={12} /> Reveal
           </button>
         )}
 
@@ -469,7 +482,7 @@ function App() {
           </div>
         </header>
 
-        <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           <AnimatePresence mode='popLayout'>
             {filteredNotes.map(note => <NoteCard key={note.id} note={note} onReveal={handleReveal} currentUser={currentUser} onDelete={handleDelete} onEdit={handleEdit} />)}
           </AnimatePresence>
@@ -495,11 +508,15 @@ function App() {
                 {editingNote ? 'Edit Love Note' : 'Write a Love Note'} <Heart className="text-primary" size={20} fill="currentColor" />
               </h2>
               <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10 mb-2 shadow-sm">
-                   <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs font-bold text-primary shadow-sm uppercase">
-                     {currentUser.username === 'khai' ? 'G' : 'K'}
-                   </div>
-                   <span className="text-sm font-bold text-primary italic">To: My Favorite Human ✨</span>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-bold text-primary uppercase px-1 tracking-widest">Send To</label>
+                  <input 
+                    type="text" 
+                    placeholder="Recipient username (optional)" 
+                    value={newNote.recipient_username || ''} 
+                    onChange={e => setNewNote({...newNote, recipient_username: e.target.value})} 
+                    className="w-full p-3 bg-gray-50 rounded-2xl border-2 border-gray-100 focus:border-primary outline-none font-bold text-gray-800 transition-all shadow-inner text-sm" 
+                  />
                 </div>
                 <input type="text" placeholder="Give it a sweet title..." value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none border-b-2 border-gray-100 focus:border-primary outline-none focus:ring-0 font-bold text-gray-800 transition-all shadow-inner" />
                 <textarea placeholder="Pour your heart out here..." rows={4} value={newNote.content} onChange={e => setNewNote({...newNote, content: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none border-b-2 border-gray-100 focus:border-primary outline-none focus:ring-0 font-bold text-gray-800 transition-all resize-none shadow-inner leading-relaxed" />
@@ -523,7 +540,7 @@ function App() {
                 )}
 
                 <button onClick={handleAddNote} className="btn-cute bg-primary text-white justify-center py-4 mt-2 shadow-xl shadow-primary/30 font-bold border-b-4 border-primary/40 hover:scale-[1.02]">
-                  {editingNote ? 'Update Memory ✨' : 'Send to Her 💌'}
+                  {editingNote ? 'Update Memory ✨' : 'Send Note 💌'}
                 </button>
               </div>
             </motion.div>
