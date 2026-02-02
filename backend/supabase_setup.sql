@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS notes (
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   color TEXT DEFAULT 'bg-[#ffb7b2]',
-  author_id BIGINT NOT NULL REFERENCES users(id),
-  recipient_id BIGINT REFERENCES users(id),
+  author_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  recipient_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
   is_revealed BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
