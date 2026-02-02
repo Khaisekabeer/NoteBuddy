@@ -6,6 +6,7 @@ import { twMerge } from 'tailwind-merge'
 import confetti from 'canvas-confetti'
 import { api } from './services/api'
 import { io } from 'socket.io-client'
+import InaugurationScreen from './components/InaugurationScreen'
 
 const socket = io(window.location.origin);
 
@@ -172,7 +173,7 @@ const AuthScreen = ({ onLogin }) => {
              <img src="/logo.png" className="w-20 h-20" />
            </div>
            <h1 className="text-4xl font-black text-primary drop-shadow-sm">NoteBuddy</h1>
-           <p className="text-gray-600 font-bold text-sm text-center mt-2 px-4">Our private world of memories. 💖</p>
+           <p className="text-gray-600 font-bold text-sm text-center mt-2 px-4">Our private world of memories. </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 relative z-20">
@@ -211,6 +212,7 @@ const AuthScreen = ({ onLogin }) => {
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [showInauguration, setShowInauguration] = useState(false)
   const [view, setView] = useState('mine')
   const [notes, setNotes] = useState([])
   const [seenNoteIds, setSeenNoteIds] = useState(new Set())
@@ -240,6 +242,14 @@ function App() {
       checkAuth();
     } else {
       setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Check if we've already done the inauguration on this device
+    const hasInaugurated = localStorage.getItem('hasInaugurated');
+    if (!hasInaugurated) {
+      setShowInauguration(true);
     }
   }, []);
 
@@ -365,6 +375,14 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row font-cute text-text overflow-hidden relative">
+      <AnimatePresence>
+        {showInauguration && (
+          <InaugurationScreen onComplete={() => {
+            setShowInauguration(false);
+            localStorage.setItem('hasInaugurated', 'true');
+          }} />
+        )}
+      </AnimatePresence>
       <FloatingHearts />
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/30 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-secondary/50 rounded-full blur-[100px] pointer-events-none" />
