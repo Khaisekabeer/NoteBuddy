@@ -287,6 +287,10 @@ app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 app.use(express.static(path.join(__dirname, '../dist')));
 app.use((req, res) => {
   res.sendFile(path.resolve(__dirname, '../dist/index.html'));

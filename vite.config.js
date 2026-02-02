@@ -9,6 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['logo.png', 'favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      workbox: {
+        navigateFallbackDenylist: [/^\/api/, /^\/health/]
+      },
       manifest: {
         name: 'NoteBuddy - Cute Notes with Friends',
         short_name: 'NoteBuddy',

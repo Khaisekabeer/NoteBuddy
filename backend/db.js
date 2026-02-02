@@ -20,7 +20,7 @@ const initDb = async () => {
     // Seed users
     const users = [
       { username: 'khai', password: '123' },
-      { username: 'bestie', password: '123' }
+      { username: 'Afi', password: '123' }
     ];
 
     for (const u of users) {
