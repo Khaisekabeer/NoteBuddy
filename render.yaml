@@ -17,3 +17,15 @@ services:
         value: https://udlshxcrghonvjygwbdd.supabase.co
       - key: SUPABASE_ANON_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkbHNoeGNyZ2hvbnZqeWd3YmRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNzExMzksImV4cCI6MjA4NDc0NzEzOX0.tB3jVXzuvdMs0oVdLSvQSJgNsBBhuIDNg54uVJmbBSw
+
+  - type: static
+    name: notebuddy-ui
+    env: static
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: notebuddy
+          property: url
