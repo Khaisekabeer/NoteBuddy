@@ -569,13 +569,13 @@ function App() {
              </div>
              <div className="flex gap-2 items-center">
                 {/* Mobile Memory Jar */}
-                <div className="relative group cursor-pointer" onClick={() => { setShowJarMessage(true); setTimeout(() => setShowJarMessage(false), 3000); }}>
+                <div className="relative group cursor-pointer flex flex-col items-center" onClick={() => { setShowJarMessage(true); setTimeout(() => setShowJarMessage(false), 3000); }}>
                    {/* Custom CSS Jar */}
-                   <div className="flex flex-col items-center">
+                   <div className="flex flex-col items-center mb-0.5">
                       {/* Lid */}
-                      <div className="w-5 h-1.5 bg-gray-300 rounded-sm border border-gray-400/50 shadow-sm z-20" />
+                      <div className="w-4 h-1 bg-gray-300 rounded-sm border border-gray-400/50 shadow-sm z-20" />
                       {/* Body */}
-                      <div className="w-8 h-9 bg-white/40 backdrop-blur-sm border-2 border-gray-400/40 border-t-0 rounded-b-xl relative overflow-hidden shadow-inner">
+                      <div className="w-6 h-7 bg-white/40 backdrop-blur-sm border-2 border-gray-400/40 border-t-0 rounded-b-lg relative overflow-hidden shadow-inner">
                          {/* Liquid */}
                          <motion.div 
                            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 w-full"
@@ -584,9 +584,11 @@ function App() {
                            transition={{ type: "spring", stiffness: 50, damping: 20 }}
                          />
                          {/* Glass Shine */}
-                         <div className="absolute top-1 left-1 w-1 h-6 bg-white/40 rounded-full z-10" />
+                         <div className="absolute top-1 left-0.5 w-0.5 h-4 bg-white/40 rounded-full z-10" />
                       </div>
                    </div>
+                   
+                   <span className="text-[8px] font-bold text-gray-400 leading-none">Memory Jar</span>
 
                    <AnimatePresence>
                      {showJarMessage && (
@@ -618,7 +620,7 @@ function App() {
               <input type="text" placeholder="Search memories..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white/70 backdrop-blur-sm rounded-2xl border-none outline-none font-bold text-gray-800" />
             </div>
             <button onClick={() => { setEditingNote(null); setIsAdding(true); }} className="hidden md:flex btn-cute bg-primary text-white hover:bg-primary/90 shadow-xl">
-              <Plus size={24} /> <span>Write Love Note</span>
+              <Plus size={24} /> <span>Write  Note</span>
             </button>
           </div>
         </header>
