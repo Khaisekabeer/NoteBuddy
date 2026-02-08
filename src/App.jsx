@@ -8,7 +8,7 @@ import knotImg from './assets/knot_transparent.png'
 import ribbonImg from './assets/ribbon.png'
 import { api } from './services/api'
 import { io } from 'socket.io-client'
-import InaugurationScreen from './components/InaugurationScreen'
+
 
 const socket = io(import.meta.env.VITE_API_URL || window.location.origin);
 
@@ -221,8 +221,8 @@ const InaugurationCeremony = ({ onComplete }) => {
          transition={{ delay: 1 }}
          className="mt-12 text-center relative z-10"
       >
-         <h1 className="text-4xl font-black text-primary mb-2 drop-shadow-md">Welcome Home</h1>
-         <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">A special place for special memories</p>
+         <h1 className="text-4xl font-black text-primary mb-2 drop-shadow-md"> Welcome Home Miss Afiii..</h1>
+         <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Tap to inaugurate the vault </p>
       </motion.div>
 
     </motion.div>
@@ -263,7 +263,7 @@ const AuthScreen = ({ onLogin }) => {
              <img src="/logo.png" className="w-20 h-20" />
            </div>
            <h1 className="text-4xl font-black text-primary drop-shadow-sm">NoteBuddy</h1>
-           <p className="text-gray-600 font-bold text-sm text-center mt-2 px-4">Our private world of memories. </p>
+           <p className="text-gray-600 font-bold text-sm text-center mt-2 px-4">A private world of memories. </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 relative z-20">
@@ -302,7 +302,7 @@ const AuthScreen = ({ onLogin }) => {
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [showInauguration, setShowInauguration] = useState(false)
+
   const [view, setView] = useState('mine')
   const [notes, setNotes] = useState([])
   const [seenNoteIds, setSeenNoteIds] = useState(new Set())
@@ -316,6 +316,7 @@ function App() {
   const [isInaugurated, setIsInaugurated] = useState(() => {
     return localStorage.getItem('inaugurated') === 'true';
   });
+  const [showJarMessage, setShowJarMessage] = useState(false);
 
   const handleInaugurationComplete = () => {
     localStorage.setItem('inaugurated', 'true');
@@ -343,13 +344,7 @@ function App() {
     }
   }, []);
 
-  useEffect(() => {
-    // Check if we've already done the inauguration on this device
-    const hasInaugurated = localStorage.getItem('hasInaugurated');
-    if (!hasInaugurated) {
-      setShowInauguration(true);
-    }
-  }, []);
+
 
   useEffect(() => {
     if (currentUser) {
@@ -475,14 +470,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row font-cute text-text overflow-hidden relative">
-      <AnimatePresence>
-        {showInauguration && (
-          <InaugurationScreen onComplete={() => {
-            setShowInauguration(false);
-            localStorage.setItem('hasInaugurated', 'true');
-          }} />
-        )}
-      </AnimatePresence>
+
       <FloatingHearts />
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/30 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-secondary/50 rounded-full blur-[100px] pointer-events-none" />
@@ -579,14 +567,49 @@ function App() {
                   <p className="text-[10px] font-bold text-gray-400">Hi, {currentUser.username}! 👋</p>
                 </div>
              </div>
-             <div className="flex gap-2">
+             <div className="flex gap-2 items-center">
+                {/* Mobile Memory Jar */}
+                <div className="relative group cursor-pointer" onClick={() => { setShowJarMessage(true); setTimeout(() => setShowJarMessage(false), 3000); }}>
+                   {/* Custom CSS Jar */}
+                   <div className="flex flex-col items-center">
+                      {/* Lid */}
+                      <div className="w-5 h-1.5 bg-gray-300 rounded-sm border border-gray-400/50 shadow-sm z-20" />
+                      {/* Body */}
+                      <div className="w-8 h-9 bg-white/40 backdrop-blur-sm border-2 border-gray-400/40 border-t-0 rounded-b-xl relative overflow-hidden shadow-inner">
+                         {/* Liquid */}
+                         <motion.div 
+                           className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 w-full"
+                           initial={{ height: 0 }}
+                           animate={{ height: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 20) * 100, 100)}%` }}
+                           transition={{ type: "spring", stiffness: 50, damping: 20 }}
+                         />
+                         {/* Glass Shine */}
+                         <div className="absolute top-1 left-1 w-1 h-6 bg-white/40 rounded-full z-10" />
+                      </div>
+                   </div>
+
+                   <AnimatePresence>
+                     {showJarMessage && (
+                       <motion.div 
+                         initial={{ opacity: 0, y: 10, scale: 0.8 }} 
+                         animate={{ opacity: 1, y: 0, scale: 1 }} 
+                         exit={{ opacity: 0, scale: 0.8 }} 
+                         className="absolute top-12 right-0 bg-primary text-white text-[10px] font-black p-2 rounded-xl w-32 shadow-2xl z-50 text-center border-2 border-white"
+                       >
+                         Oh no! It fills till infinity! ♾️
+                         <div className="absolute -top-1 right-4 w-2 h-2 bg-primary rotate-45 border-l-2 border-t-2 border-white" />
+                       </motion.div>
+                     )}
+                   </AnimatePresence>
+                </div>
+
                 <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-primary/10 text-primary rounded-xl"><Settings size={18} /></button>
                 <button onClick={handleLogout} className="p-2 bg-red-50 text-red-400 rounded-xl"><LogOut size={18} /></button>
              </div>
           </div>
           <div>
-            <h2 className="text-3xl md:text-4xl font-black mb-1 uppercase tracking-tight text-gray-800 drop-shadow-sm">Our Secret Corner 💖</h2>
-            <p className="text-xs md:text-sm font-bold italic text-gray-500">Sharing love, one note at a time.</p>
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 mb-1">Our Note corner 💖</h2>
+            <p className="text-sm md:text-base font-medium text-gray-500">uhmmmm.. one note at a time.</p>
           </div>
           
           <div className="flex items-center gap-4 w-full md:w-auto">
