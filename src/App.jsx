@@ -456,8 +456,10 @@ function App() {
   if (!currentUser) return <AuthScreen onLogin={setCurrentUser} />;
 
   const filteredNotes = notes.filter(n => {
+    const dateStr = new Date(n.created_at).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const matchesSearch = n.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         n.content.toLowerCase().includes(searchTerm.toLowerCase());
+                         n.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         dateStr.toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
     
     // Logic:
