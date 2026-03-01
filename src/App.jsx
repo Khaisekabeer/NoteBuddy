@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Search, Heart, User, Users, StickyNote, Eye, Lock, Unlock, Sparkles, Send, Trash2, LogOut, Settings, Key, ShieldCheck, Edit2 } from 'lucide-react'
+import { Plus, Search, Heart, User, Users, StickyNote, Eye, Lock, Unlock, Sparkles, Send, Trash2, LogOut, Settings, Key, ShieldCheck, Edit2, WifiOff, CloudUpload } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -42,7 +42,7 @@ function cn(...inputs) {
   return twMerge(clsx(inputs))
 }
 
-const NoteCard = ({ note, onReveal, currentUser, onDelete, onEdit }) => {
+const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, currentUser, onDelete, onEdit }) => {
   const isOwner = note.author_id === currentUser.id;
   const [isExpanded, setIsExpanded] = React.useState(false);
   
@@ -58,8 +58,12 @@ const NoteCard = ({ note, onReveal, currentUser, onDelete, onEdit }) => {
   };
 
   const handleRevealClick = () => {
-    if (isOwner && !note.is_revealed) {
-      onReveal(note.id);
+    if (isOwner) {
+      if (!note.is_revealed) {
+        onReveal(note.id);
+      } else {
+        onUnreveal(note.id);
+      }
     }
   };
 
@@ -120,22 +124,61 @@ const NoteCard = ({ note, onReveal, currentUser, onDelete, onEdit }) => {
            <span className="text-xs font-black text-gray-900 uppercase tracking-wider">
             {isOwner ? 'Me' : note.author_name}
           </span>
+          {/* Seen badge — shown to author */}
+          {isOwner && note.is_seen && (
+            <span className="flex items-center gap-1 text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+              <Eye size={10} /> Seen
+            </span>
+          )}
         </div>
-        
-        {isOwner && !note.is_revealed && (
-          <button 
-            onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
-            className="flex items-center gap-2 text-xs bg-primary text-white hover:bg-primary-dark px-4 py-2 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-4 border-black/20"
-          >
-            <Send size={12} /> Reveal
-          </button>
-        )}
 
-        {!isOwner && note.is_revealed && (
-           <div className="flex items-center gap-1 text-[10px] font-black text-green-800 bg-green-100 px-3 py-1.5 rounded-lg shadow-inner border border-green-200">
-             REVEALED 🌹
-           </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Like button — shown to recipient on revealed notes */}
+          {!isOwner && note.is_revealed && (
+            <button
+              onClick={(e) => { e.stopPropagation(); note.is_liked ? onUnlike(note.id) : onLike(note.id); }}
+              className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl font-black transition-all active:scale-90 border-2 ${
+                note.is_liked
+                  ? 'bg-red-50 text-red-500 border-red-200 shadow-inner'
+                  : 'bg-white/60 text-gray-400 border-gray-200 hover:border-red-300 hover:text-red-400'
+              }`}
+            >
+              <Heart size={12} fill={note.is_liked ? 'currentColor' : 'none'} />
+              {note.is_liked ? 'Liked!' : 'Like'}
+            </button>
+          )}
+
+          {/* Liked badge — shown to author when recipient liked */}
+          {isOwner && note.is_liked && (
+            <span className="flex items-center gap-1 text-[10px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+              <Heart size={10} fill="currentColor" /> Liked!
+            </span>
+          )}
+
+          {isOwner && !note.is_revealed && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
+              className="flex items-center gap-2 text-xs bg-primary text-white hover:bg-primary-dark px-4 py-2 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-4 border-black/20"
+            >
+              <Send size={12} /> Reveal
+            </button>
+          )}
+
+          {isOwner && note.is_revealed && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
+              className="flex items-center gap-2 text-xs bg-amber-500 text-white hover:bg-amber-600 px-4 py-2 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-4 border-black/20"
+            >
+              <Lock size={12} /> Unreveal
+            </button>
+          )}
+
+          {!isOwner && note.is_revealed && (
+            <div className="flex items-center gap-1 text-[10px] font-black text-green-800 bg-green-100 px-3 py-1.5 rounded-lg shadow-inner border border-green-200">
+              REVEALED 🌹
+            </div>
+          )}
+        </div>
       </div>
     </motion.div>
   )
@@ -305,14 +348,19 @@ function App() {
 
   const [view, setView] = useState('mine')
   const [notes, setNotes] = useState([])
-  const [seenNoteIds, setSeenNoteIds] = useState(new Set())
   const [isAdding, setIsAdding] = useState(false)
   const [editingNote, setEditingNote] = useState(null)
+  const [noteToDelete, setNoteToDelete] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [newNote, setNewNote] = useState({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' })
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [passwordData, setPasswordData] = useState({ current: '', new: '' })
   const [settingsMessage, setSettingsMessage] = useState({ text: '', type: '' })
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [drafts, setDrafts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('notebuddy_drafts') || '[]'); } catch { return []; }
+  })
+  const [isSyncing, setIsSyncing] = useState(false)
   const [isInaugurated, setIsInaugurated] = useState(() => {
     return localStorage.getItem('inaugurated') === 'true';
   });
@@ -346,20 +394,38 @@ function App() {
 
 
 
+  // Online/offline detection
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
+  }, []);
+
   useEffect(() => {
     if (currentUser) {
+      // Persist user to localStorage for offline awareness
+      localStorage.setItem('notebuddy_user', JSON.stringify(currentUser));
+
       fetchNotes();
-      // Join socket room
       socket.emit('join', currentUser.id);
 
-      // Listen for real-time reveals
-      const handleNoteRevealed = (payload) => {
-        fetchNotes(); // Refresh to get the new note
-        triggerConfetti();
-      };
+      const handleNoteRevealed = () => { fetchNotes(); triggerConfetti(); };
+      const handleNoteUnrevealed = () => { fetchNotes(); };
+      const handleNoteSeen = () => { fetchNotes(); };
+      const handleNoteLiked = () => { fetchNotes(); };
 
       socket.on('note_revealed', handleNoteRevealed);
-      return () => socket.off('note_revealed', handleNoteRevealed);
+      socket.on('note_unrevealed', handleNoteUnrevealed);
+      socket.on('note_seen', handleNoteSeen);
+      socket.on('note_liked', handleNoteLiked);
+      return () => {
+        socket.off('note_revealed', handleNoteRevealed);
+        socket.off('note_unrevealed', handleNoteUnrevealed);
+        socket.off('note_seen', handleNoteSeen);
+        socket.off('note_liked', handleNoteLiked);
+      };
     }
   }, [currentUser]);
 
@@ -399,7 +465,18 @@ function App() {
 
   const handleAddNote = async () => {
     if (!newNote.title || !newNote.content) return;
-    
+
+    // Offline? Save as draft instead
+    if (!isOnline && !editingNote) {
+      const draft = { ...newNote, id: `draft_${Date.now()}`, isDraft: true, created_at: new Date().toISOString() };
+      const updated = [...drafts, draft];
+      setDrafts(updated);
+      localStorage.setItem('notebuddy_drafts', JSON.stringify(updated));
+      setIsAdding(false);
+      setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' });
+      return;
+    }
+
     if (editingNote) {
       await api.updateNote(editingNote.id, newNote);
     } else {
@@ -439,8 +516,42 @@ function App() {
     triggerConfetti();
   }
 
+  const handleUnreveal = async (id) => {
+    await api.unrevelNote(id);
+    fetchNotes();
+  }
+
+  const handleLike = async (id) => {
+    await api.likeNote(id);
+    fetchNotes();
+  }
+
+  const handleUnlike = async (id) => {
+    await api.unlikeNote(id);
+    fetchNotes();
+  }
+
+  const syncDrafts = async () => {
+    if (!drafts.length || isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const recipient = currentUser.username === 'khai' ? 'bestie' : 'khai';
+      for (const draft of drafts) {
+        const { isDraft, id, created_at, ...noteData } = draft;
+        await api.createNote({ ...noteData, recipient_username: recipient });
+      }
+      setDrafts([]);
+      localStorage.removeItem('notebuddy_drafts');
+      fetchNotes();
+      triggerConfetti();
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
   const handleDelete = async (id) => {
     await api.deleteNote(id);
+    setNoteToDelete(null);
     fetchNotes();
   }
 
@@ -453,7 +564,10 @@ function App() {
 
   if (!isInaugurated) return <InaugurationCeremony onComplete={handleInaugurationComplete} />;
 
-  if (!currentUser) return <AuthScreen onLogin={setCurrentUser} />;
+  if (!currentUser) {
+    // Try to restore user from localStorage for offline hint (still show login)
+    return <AuthScreen onLogin={(user) => { localStorage.setItem('notebuddy_user', JSON.stringify(user)); setCurrentUser(user); }} />;
+  }
 
   const filteredNotes = notes.filter(n => {
     const dateStr = new Date(n.created_at).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -558,6 +672,43 @@ function App() {
       </aside>
 
       <main className="flex-1 p-4 md:p-12 pb-32 md:pb-12 overflow-y-auto relative z-10">
+
+        {/* Offline Banner */}
+        <AnimatePresence>
+          {!isOnline && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="flex items-center gap-3 bg-amber-50 border-2 border-amber-200 text-amber-800 rounded-2xl px-5 py-3 mb-6 font-black text-sm shadow-sm"
+            >
+              <WifiOff size={18} className="text-amber-500 shrink-0" />
+              <span>You're offline — notes will be saved as drafts 📝</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Sync Drafts Banner */}
+        <AnimatePresence>
+          {isOnline && drafts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="flex items-center justify-between gap-3 bg-blue-50 border-2 border-blue-200 text-blue-800 rounded-2xl px-5 py-3 mb-6 font-black text-sm shadow-sm"
+            >
+              <span>📬 {drafts.length} draft{drafts.length > 1 ? 's' : ''} waiting to be sent!</span>
+              <button
+                onClick={syncDrafts}
+                disabled={isSyncing}
+                className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-50"
+              >
+                <CloudUpload size={14} />
+                {isSyncing ? 'Syncing...' : 'Sync Now'}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div className="md:hidden w-full flex justify-between items-center bg-white/60 p-4 rounded-3xl backdrop-blur-lg border border-white/80 shadow-sm mb-2">
              <div className="flex items-center gap-3">
@@ -627,9 +778,48 @@ function App() {
           </div>
         </header>
 
+        {/* Offline Drafts Section */}
+        <AnimatePresence>
+          {drafts.length > 0 && view === 'mine' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
+              <h3 className="text-xs font-black uppercase tracking-widest text-amber-600 mb-3 px-1 flex items-center gap-2">
+                <WifiOff size={12} /> Offline Drafts ({drafts.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {drafts.map(draft => (
+                  <motion.div
+                    key={draft.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 0.7, scale: 1 }}
+                    className={`${draft.color} rounded-3xl p-5 min-h-[180px] flex flex-col justify-between border-2 border-dashed border-amber-400 relative`}
+                  >
+                    <div>
+                      <h4 className="font-extrabold text-base text-gray-800 mb-2">{draft.title}</h4>
+                      <p className="text-sm text-gray-700 font-bold">{draft.content}</p>
+                    </div>
+                    <div className="flex items-center justify-between mt-4">
+                      <span className="text-[10px] font-black text-amber-700 bg-amber-100 px-2 py-1 rounded-full">📝 Draft — not sent</span>
+                      <button
+                        onClick={() => {
+                          const updated = drafts.filter(d => d.id !== draft.id);
+                          setDrafts(updated);
+                          localStorage.setItem('notebuddy_drafts', JSON.stringify(updated));
+                        }}
+                        className="p-1.5 bg-white/60 hover:bg-white rounded-full text-red-400 transition-all"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           <AnimatePresence mode='popLayout'>
-            {filteredNotes.map(note => <NoteCard key={note.id} note={note} onReveal={handleReveal} currentUser={currentUser} onDelete={handleDelete} onEdit={handleEdit} />)}
+            {filteredNotes.map(note => <NoteCard key={note.id} note={note} onReveal={handleReveal} onUnreveal={handleUnreveal} onLike={handleLike} onUnlike={handleUnlike} currentUser={currentUser} onDelete={(id) => setNoteToDelete(id)} onEdit={handleEdit} />)}
           </AnimatePresence>
         </motion.div>
 
@@ -650,7 +840,7 @@ function App() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsAdding(false); setEditingNote(null); }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl relative z-50 border-2 border-primary/5">
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
-                {editingNote ? 'Edit Love Note' : 'Write a Love Note'} <Heart className="text-primary" size={20} fill="currentColor" />
+                {editingNote ? 'Edit Note' : 'Write a Note'} <Heart className="text-primary" size={20} fill="currentColor" />
               </h2>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
@@ -692,6 +882,27 @@ function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {noteToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setNoteToDelete(null)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl relative z-50 text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={28} className="text-red-500" />
+              </div>
+              <h2 className="text-xl font-black text-gray-900 mb-2">Delete this memory?</h2>
+              <p className="text-sm text-gray-400 font-bold mb-6">This can't be undone. 💔</p>
+              <div className="flex gap-3">
+                <button onClick={() => setNoteToDelete(null)} className="flex-1 py-3 rounded-2xl border-2 border-gray-100 font-black text-gray-400 hover:bg-gray-50 transition-all">Cancel</button>
+                <button onClick={() => handleDelete(noteToDelete)} className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-black hover:bg-red-600 active:scale-95 transition-all shadow-lg shadow-red-200">Delete 🗑️</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Settings Modal */}
       <AnimatePresence>
         {isSettingsOpen && (

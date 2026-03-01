@@ -60,6 +60,30 @@ export const api = {
     return res.json();
   },
 
+  unrevelNote: async (id) => {
+    const res = await fetch(`${API_URL}/notes/${id}/unreveal`, {
+      method: 'PATCH',
+      headers: getHeaders()
+    });
+    return res.json();
+  },
+
+  likeNote: async (id) => {
+    const res = await fetch(`${API_URL}/notes/${id}/like`, {
+      method: 'PATCH',
+      headers: getHeaders()
+    });
+    return res.json();
+  },
+
+  unlikeNote: async (id) => {
+    const res = await fetch(`${API_URL}/notes/${id}/unlike`, {
+      method: 'PATCH',
+      headers: getHeaders()
+    });
+    return res.json();
+  },
+
   deleteNote: async (id) => {
     const res = await fetch(`${API_URL}/notes/${id}`, {
       method: 'DELETE',

@@ -136,12 +136,22 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
+    // Mark revealed notes as seen when the recipient loads them
+    const unseenForRecipient = notes.filter(
+      n => n.recipient_id === req.user.id && n.is_revealed && !n.is_seen
+    );
+    for (const note of unseenForRecipient) {
+      await supabase.from('notes').update({ is_seen: true }).eq('id', note.id);
+      io.to(`user_${note.author_id}`).emit('note_seen', { id: note.id });
+    }
+
     const decryptedNotes = notes.map(n => ({
       ...n,
       author_name: n.users?.username,
       title: decrypt(n.title),
       content: decrypt(n.content),
-      is_revealed: n.is_revealed ? 1 : 0
+      is_revealed: n.is_revealed ? 1 : 0,
+      is_seen: unseenForRecipient.some(u => u.id === n.id) ? true : n.is_seen
     }));
 
     res.json(decryptedNotes);
@@ -259,6 +269,70 @@ app.patch('/api/notes/:id/reveal', authenticateToken, async (req, res) => {
     res.json({ message: 'Note revealed! 🎉' });
   } catch (err) {
     console.error('Reveal note error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.patch('/api/notes/:id/unreveal', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data: note } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!note) return res.status(404).json({ message: 'Note not found' });
+    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can unreveal' });
+
+    await supabase
+      .from('notes')
+      .update({ is_revealed: false })
+      .eq('id', id);
+
+    // Notify recipient that the note was un-revealed (hidden again)
+    if (note.recipient_id) {
+      io.to(`user_${note.recipient_id}`).emit('note_unrevealed', {
+        id: note.id,
+        author_id: note.author_id
+      });
+    }
+
+    res.json({ message: 'Note hidden again 🔒' });
+  } catch (err) {
+    console.error('Unreveal note error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.patch('/api/notes/:id/like', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data: note } = await supabase.from('notes').select('*').eq('id', id).single();
+    if (!note) return res.status(404).json({ message: 'Note not found' });
+    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Only recipient can like' });
+
+    await supabase.from('notes').update({ is_liked: true }).eq('id', id);
+
+    io.to(`user_${note.author_id}`).emit('note_liked', { id: note.id });
+    res.json({ message: 'Note liked! ❤️' });
+  } catch (err) {
+    console.error('Like note error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.patch('/api/notes/:id/unlike', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data: note } = await supabase.from('notes').select('*').eq('id', id).single();
+    if (!note) return res.status(404).json({ message: 'Note not found' });
+    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Only recipient can unlike' });
+
+    await supabase.from('notes').update({ is_liked: false }).eq('id', id);
+    res.json({ message: 'Note unliked' });
+  } catch (err) {
+    console.error('Unlike note error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
