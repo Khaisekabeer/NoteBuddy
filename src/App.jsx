@@ -47,7 +47,8 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
   const [isExpanded, setIsExpanded] = React.useState(false);
   
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
+    // Append Z to force UTC parsing so it converts to local time correctly
+    const date = new Date(dateString.endsWith('Z') ? dateString : dateString + 'Z');
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
@@ -124,10 +125,15 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
            <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-[10px] font-black shadow-md uppercase text-primary border-2 border-primary/10 shrink-0">
              {note.author_name ? note.author_name[0] : '?'}
            </div>
-           <div className="flex items-center gap-1.5 overflow-hidden">
+           <div className="flex flex-col items-start overflow-hidden">
              <span className="text-xs font-black text-gray-900 uppercase tracking-wider truncate">
               {isOwner ? 'Me' : note.author_name}
-            </span>
+             </span>
+             {note.recipient_name && (
+               <span className="text-[9px] font-bold text-gray-500 uppercase truncate">
+                 To: {note.recipient_name}
+               </span>
+             )}
           </div>
           {/* Seen badge — shown to author */}
           {isOwner && note.is_seen && (
@@ -142,14 +148,14 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
           {!isOwner && note.is_revealed && (
             <button
               onClick={(e) => { e.stopPropagation(); note.is_liked ? onUnlike(note.id) : onLike(note.id); }}
-              className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl font-black transition-all active:scale-90 border-2 ${
+              className={`flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-xl font-black transition-all active:scale-90 border-2 ${
                 note.is_liked
                   ? 'bg-red-50 text-red-500 border-red-200 shadow-inner'
                   : 'bg-white/60 text-gray-400 border-gray-200 hover:border-red-300 hover:text-red-400'
               }`}
             >
               <Heart size={12} fill={note.is_liked ? 'currentColor' : 'none'} />
-              {note.is_liked ? 'Liked!' : 'Like'}
+              {note.is_liked ? 'Liked' : 'Like'}
             </button>
           )}
 
@@ -163,23 +169,23 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
           {isOwner && !note.is_revealed && (
             <button
               onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
-              className="flex items-center gap-2 text-xs bg-primary text-white hover:bg-primary-dark px-4 py-2 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-4 border-black/20"
+              className="flex items-center gap-1.5 text-[11px] bg-primary text-white hover:bg-primary-dark px-3 py-1.5 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-2 border-black/20"
             >
-              <Send size={12} /> Reveal
+              <Send size={10} /> Reveal
             </button>
           )}
 
           {isOwner && note.is_revealed && (
             <button
               onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
-              className="flex items-center gap-2 text-xs bg-amber-500 text-white hover:bg-amber-600 px-4 py-2 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-4 border-black/20"
+              className="flex items-center gap-1.5 text-[11px] bg-amber-500 text-white hover:bg-amber-600 px-3 py-1.5 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-2 border-black/20"
             >
-              <Lock size={12} /> Unreveal
+              <Lock size={10} /> Unreveal
             </button>
           )}
 
           {!isOwner && note.is_revealed && (
-            <div className="flex items-center gap-1 text-[10px] font-black text-green-800 bg-green-100 px-3 py-1.5 rounded-lg shadow-inner border border-green-200">
+            <div className="flex items-center gap-1 text-[9px] font-black text-green-800 bg-green-100 px-2 py-1 rounded-lg shadow-inner border border-green-200">
               REVEALED 🌹
             </div>
           )}
