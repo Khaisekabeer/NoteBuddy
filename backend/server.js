@@ -236,7 +236,7 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
       .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can edit' });
+    if (String(note.author_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only author can edit' });
 
     const encryptedTitle = encrypt(title);
     const encryptedContent = encrypt(content);
@@ -267,7 +267,7 @@ app.patch('/api/notes/:id/reveal', authenticateToken, async (req, res) => {
       .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can reveal' });
+    if (String(note.author_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only author can reveal' });
 
     await supabase
       .from('notes')
@@ -296,7 +296,7 @@ app.patch('/api/notes/:id/seen', authenticateToken, async (req, res) => {
     if (!note) return res.status(404).json({ message: 'Note not found' });
     
     // Only recipient can mark as seen
-    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Unauthorized' });
+    if (String(note.recipient_id) !== String(req.user.id)) return res.status(403).json({ message: 'Unauthorized' });
 
     if (!note.is_seen) {
       await supabase.from('notes').update({ is_seen: true }).eq('id', id);
@@ -320,7 +320,7 @@ app.patch('/api/notes/:id/unreveal', authenticateToken, async (req, res) => {
       .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can unreveal' });
+    if (String(note.author_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only author can unreveal' });
 
     await supabase
       .from('notes')
@@ -347,7 +347,7 @@ app.patch('/api/notes/:id/like', authenticateToken, async (req, res) => {
   try {
     const { data: note } = await supabase.from('notes').select('*').eq('id', id).single();
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Only recipient can like' });
+    if (String(note.recipient_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only recipient can like' });
 
     await supabase.from('notes').update({ is_liked: true }).eq('id', id);
 
@@ -364,7 +364,7 @@ app.patch('/api/notes/:id/unlike', authenticateToken, async (req, res) => {
   try {
     const { data: note } = await supabase.from('notes').select('*').eq('id', id).single();
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Only recipient can unlike' });
+    if (String(note.recipient_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only recipient can unlike' });
 
     await supabase.from('notes').update({ is_liked: false }).eq('id', id);
     res.json({ message: 'Note unliked' });
@@ -384,7 +384,7 @@ app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
       .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can delete' });
+    if (String(note.author_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only author can delete' });
 
     await supabase
       .from('notes')

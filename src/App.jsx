@@ -43,7 +43,7 @@ function cn(...inputs) {
 }
 
 const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, currentUser, onDelete, onEdit }) => {
-  const isOwner = note.author_id === currentUser.id;
+  const isOwner = String(note.author_id) === String(currentUser.id);
   const [isExpanded, setIsExpanded] = React.useState(false);
   
   const formatDate = (dateString) => {
@@ -605,8 +605,8 @@ function App() {
     // Logic:
     // 'mine' -> Show everything I wrote (revealed or not)
     // 'friend' -> Show only what the other person revealed to me
-    if (view === 'mine') return n.author_id === currentUser.id;
-    if (view === 'friend') return n.author_id !== currentUser.id;
+    if (view === 'mine') return String(n.author_id) === String(currentUser.id);
+    if (view === 'friend') return String(n.author_id) !== String(currentUser.id);
     return true;
   })
 
