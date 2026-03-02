@@ -149,7 +149,7 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
       title: decrypt(n.title),
       content: decrypt(n.content),
       is_revealed: n.is_revealed ? 1 : 0,
-      is_seen: unseenForRecipient.some(u => u.id === n.id) ? true : n.is_seen
+      is_seen: !!n.is_seen
     }));
 
     res.json(decryptedNotes);
@@ -177,10 +177,16 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
     if (!recipient_id) {
        const { data: others } = await supabase
          .from('users')
-         .select('id')
-         .neq('id', req.user.id)
-         .limit(1);
-       if (others && others.length > 0) recipient_id = others[0].id;
+         .select('id, username')
+         .neq('id', req.user.id);
+       
+       if (others && others.length > 0) {
+         recipient_id = others[0].id;
+         console.log(`Auto-assigned recipient: ${others[0].username} (ID: ${others[0].id})`);
+         if (others.length > 1) {
+           console.warn(`⚠️ WARNING: Found ${others.length} other users. Picking the first one: ${others[0].username}. Consider deleting extra users from Supabase!`);
+         }
+       }
     }
 
     console.log(`Creating note for author ${req.user.id} to recipient ${recipient_id}`);

@@ -459,10 +459,11 @@ function App() {
 
   const handleSeen = async (id) => {
     const note = notes.find(n => n.id === id);
-    // Only mark as seen if it's a revealed note from someone else and not already seen
     if (note && String(note.author_id) !== String(currentUser.id) && note.is_revealed && !note.is_seen) {
+      // Optimistic update
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, is_seen: true } : n));
       await api.markAsSeen(id);
-      fetchNotes();
+      // No re-fetch needed for simple seen marking
     }
   };
 
@@ -526,22 +527,26 @@ function App() {
   }
 
   const handleReveal = async (id) => {
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, is_revealed: 1 } : n));
     await api.revealNote(id);
-    fetchNotes();
+    fetchNotes(); // Re-fetch only once to sync any other server-side changes
     triggerConfetti();
   }
 
   const handleUnreveal = async (id) => {
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, is_revealed: 0, is_seen: false } : n));
     await api.unrevelNote(id);
     fetchNotes();
   }
 
   const handleLike = async (id) => {
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, is_liked: true } : n));
     await api.likeNote(id);
     fetchNotes();
   }
 
   const handleUnlike = async (id) => {
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, is_liked: false } : n));
     await api.unlikeNote(id);
     fetchNotes();
   }
