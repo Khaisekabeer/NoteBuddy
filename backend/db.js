@@ -17,29 +17,7 @@ const initDb = async () => {
   try {
     console.log('⏳ Initializing database...');
     
-    // Seed users
-    const users = [
-      { username: 'khai', password: '123' },
-      { username: 'Afi', password: '123' }
-    ];
-
-    for (const u of users) {
-      const { data: existing } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', u.username)
-        .maybeSingle();
-      
-      if (!existing) {
-        const hashedPassword = await bcrypt.hash(u.password, 10);
-        const { error } = await supabase.from('users').insert({
-          username: u.username,
-          password: hashedPassword
-        });
-        if (error) throw error;
-        console.log(`✅ User ${u.username} seeded!`);
-      }
-    }
+    // No longer seeding users here to allow dynamic renames in Supabase
     
     console.log('🚀 Database initialized successfully!');
   } catch (err) {

@@ -29,8 +29,10 @@ export const api = {
     return res.json();
   },
 
-  getNotes: async () => {
-    const res = await fetch(`${API_URL}/notes`, { headers: getHeaders() });
+  getNotes: async (view) => {
+    const res = await fetch(`/api/notes${view ? `?view=${view}` : ''}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
     return res.json();
   },
 
@@ -48,6 +50,14 @@ export const api = {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(note)
+    });
+    return res.json();
+  },
+
+  markAsSeen: async (id) => {
+    const res = await fetch(`/api/notes/${id}/seen`, {
+      method: 'PATCH',
+      headers: getHeaders()
     });
     return res.json();
   },

@@ -42,7 +42,7 @@ function cn(...inputs) {
   return twMerge(clsx(inputs))
 }
 
-const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, currentUser, onDelete, onEdit }) => {
+const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, currentUser, onDelete, onEdit }) => {
   const isOwner = note.author_id === currentUser.id;
   const [isExpanded, setIsExpanded] = React.useState(false);
   
@@ -77,7 +77,10 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, currentUser, o
         "card-cute min-h-[220px] flex flex-col justify-between relative group shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-t-2 border-white/80 cursor-pointer transition-all duration-300",
         note.color
       )}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={() => {
+        setIsExpanded(!isExpanded);
+        if (!isExpanded && onSeen) onSeen(note.id);
+      }}
     >
       <div className="absolute top-4 right-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex gap-2 z-10">
         {isOwner && (
@@ -116,23 +119,25 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, currentUser, o
         )}
       </div>
 
-      <div className="flex justify-between items-center mt-6 pt-4 border-t border-black/10">
-        <div className="flex items-center gap-2">
-           <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-[10px] font-black shadow-md uppercase text-primary border-2 border-primary/10">
+      <div className="flex flex-wrap justify-between items-center gap-y-3 mt-6 pt-4 border-t border-black/10">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+           <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-[10px] font-black shadow-md uppercase text-primary border-2 border-primary/10 shrink-0">
              {note.author_name ? note.author_name[0] : '?'}
            </div>
-           <span className="text-xs font-black text-gray-900 uppercase tracking-wider">
-            {isOwner ? 'Me' : note.author_name}
-          </span>
+           <div className="flex items-center gap-1.5 overflow-hidden">
+             <span className="text-xs font-black text-gray-900 uppercase tracking-wider truncate">
+              {isOwner ? 'Me' : note.author_name}
+            </span>
+          </div>
           {/* Seen badge — shown to author */}
           {isOwner && note.is_seen && (
-            <span className="flex items-center gap-1 text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+            <span className="flex items-center gap-1 text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 shrink-0">
               <Eye size={10} /> Seen
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Like button — shown to recipient on revealed notes */}
           {!isOwner && note.is_revealed && (
             <button
@@ -452,6 +457,15 @@ function App() {
     }
   };
 
+  const handleSeen = async (id) => {
+    const note = notes.find(n => n.id === id);
+    // Only mark as seen if it's a revealed note from someone else and not already seen
+    if (note && String(note.author_id) !== String(currentUser.id) && note.is_revealed && !note.is_seen) {
+      await api.markAsSeen(id);
+      fetchNotes();
+    }
+  };
+
   const triggerConfetti = () => {
     const end = Date.now() + 2 * 1000;
     const colors = ['#ffb7b2', '#b2e2f2', '#d1e9cf', '#ffccb6', '#fdfd96'];
@@ -473,20 +487,20 @@ function App() {
       setDrafts(updated);
       localStorage.setItem('notebuddy_drafts', JSON.stringify(updated));
       setIsAdding(false);
-      setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' });
+      setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false });
       return;
     }
 
     if (editingNote) {
       await api.updateNote(editingNote.id, newNote);
     } else {
-      const recipient = currentUser.username === 'khai' ? 'bestie' : 'khai';
-      await api.createNote({ ...newNote, recipient_username: recipient });
+      // Backend now handles auto-assigning recipient if none provided
+      await api.createNote(newNote);
     }
     
     setIsAdding(false);
     setEditingNote(null);
-    setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' });
+    setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false });
     fetchNotes();
     
     if (!editingNote) {
@@ -505,7 +519,8 @@ function App() {
       title: note.title,
       content: note.content,
       color: note.color,
-      is_revealed: note.is_revealed === 1
+      is_revealed: note.is_revealed === 1,
+      recipient_username: note.recipient_name || ''
     });
     setIsAdding(true);
   }
@@ -535,10 +550,10 @@ function App() {
     if (!drafts.length || isSyncing) return;
     setIsSyncing(true);
     try {
-      const recipient = currentUser.username === 'khai' ? 'bestie' : 'khai';
       for (const draft of drafts) {
         const { isDraft, id, created_at, ...noteData } = draft;
-        await api.createNote({ ...noteData, recipient_username: recipient });
+        // Backend now handles auto-assigning recipient if none provided
+        await api.createNote(noteData);
       }
       setDrafts([]);
       localStorage.removeItem('notebuddy_drafts');
@@ -642,12 +657,12 @@ function App() {
           )}>
             <div className="relative">
               <StickyNote size={view === 'friend' ? 24 : 22} />
-              {view !== 'friend' && notes.some(n => n.author_id !== currentUser.id && n.is_revealed === 1) && (
+              {notes.some(n => String(n.author_id) !== String(currentUser.id) && n.is_revealed === 1 && !n.is_seen) && (
                 <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-400 rounded-full border-2 border-white animate-ping" />
               )}
             </div>
             <span className="hidden md:inline text-sm uppercase tracking-widest px-2">
-              {currentUser.username === 'khai' ? "Her Stories" : "His Stories"}
+              Bestie's Stories
             </span>
           </button>
         </nav>
@@ -661,7 +676,7 @@ function App() {
            <div className="h-4 w-full bg-white rounded-full overflow-hidden shadow-sm border border-primary/10 mb-2">
               <motion.div 
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 20) * 100, 100)}%` }}
+                animate={{ width: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 100) * 100, 100)}%` }}
                 className="h-full bg-gradient-to-r from-primary to-secondary"
               />
            </div>
@@ -733,7 +748,7 @@ function App() {
                          <motion.div 
                            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 w-full"
                            initial={{ height: 0 }}
-                           animate={{ height: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 20) * 100, 100)}%` }}
+                           animate={{ height: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 100) * 100, 100)}%` }}
                            transition={{ type: "spring", stiffness: 50, damping: 20 }}
                          />
                          {/* Glass Shine */}
@@ -819,7 +834,7 @@ function App() {
 
         <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           <AnimatePresence mode='popLayout'>
-            {filteredNotes.map(note => <NoteCard key={note.id} note={note} onReveal={handleReveal} onUnreveal={handleUnreveal} onLike={handleLike} onUnlike={handleUnlike} currentUser={currentUser} onDelete={(id) => setNoteToDelete(id)} onEdit={handleEdit} />)}
+            {filteredNotes.map(note => <NoteCard key={note.id} note={note} onReveal={handleReveal} onUnreveal={handleUnreveal} onLike={handleLike} onUnlike={handleUnlike} onSeen={handleSeen} currentUser={currentUser} onDelete={(id) => setNoteToDelete(id)} onEdit={handleEdit} />)}
           </AnimatePresence>
         </motion.div>
 

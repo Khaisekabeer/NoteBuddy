@@ -129,25 +129,23 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
       .from('notes')
       .select(`
         *,
-        users!notes_author_id_fkey(username)
+        author:users!notes_author_id_fkey(username),
+        recipient:users!notes_recipient_id_fkey(username)
       `)
       .or(`author_id.eq.${req.user.id},and(recipient_id.eq.${req.user.id},is_revealed.eq.true)`)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Mark revealed notes as seen when the recipient loads them
+    // Identify which notes are unseen for the recipient (for frontend calculation)
     const unseenForRecipient = notes.filter(
       n => n.recipient_id === req.user.id && n.is_revealed && !n.is_seen
     );
-    for (const note of unseenForRecipient) {
-      await supabase.from('notes').update({ is_seen: true }).eq('id', note.id);
-      io.to(`user_${note.author_id}`).emit('note_seen', { id: note.id });
-    }
 
     const decryptedNotes = notes.map(n => ({
       ...n,
-      author_name: n.users?.username,
+      author_name: n.author?.username,
+      recipient_name: n.recipient?.username,
       title: decrypt(n.title),
       content: decrypt(n.content),
       is_revealed: n.is_revealed ? 1 : 0,
@@ -174,6 +172,18 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
         .maybeSingle();
       if (friend) recipient_id = friend.id;
     }
+
+    // Auto-assign recipient if none provided (for 2-person apps)
+    if (!recipient_id) {
+       const { data: others } = await supabase
+         .from('users')
+         .select('id')
+         .neq('id', req.user.id)
+         .limit(1);
+       if (others && others.length > 0) recipient_id = others[0].id;
+    }
+
+    console.log(`Creating note for author ${req.user.id} to recipient ${recipient_id}`);
 
     const encryptedTitle = encrypt(title);
     const encryptedContent = encrypt(content);
@@ -273,6 +283,27 @@ app.patch('/api/notes/:id/reveal', authenticateToken, async (req, res) => {
   }
 });
 
+app.patch('/api/notes/:id/seen', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data: note } = await supabase.from('notes').select('*').eq('id', id).single();
+    if (!note) return res.status(404).json({ message: 'Note not found' });
+    
+    // Only recipient can mark as seen
+    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Unauthorized' });
+
+    if (!note.is_seen) {
+      await supabase.from('notes').update({ is_seen: true }).eq('id', id);
+      io.to(`user_${note.author_id}`).emit('note_seen', { id: note.id });
+    }
+    
+    res.json({ message: 'Note marked as seen' });
+  } catch (err) {
+    console.error('Mark seen error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 app.patch('/api/notes/:id/unreveal', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
@@ -287,7 +318,7 @@ app.patch('/api/notes/:id/unreveal', authenticateToken, async (req, res) => {
 
     await supabase
       .from('notes')
-      .update({ is_revealed: false })
+      .update({ is_revealed: false, is_seen: false })
       .eq('id', id);
 
     // Notify recipient that the note was un-revealed (hidden again)
