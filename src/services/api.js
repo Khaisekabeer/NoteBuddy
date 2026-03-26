@@ -112,12 +112,15 @@ export const api = {
     return res.json();
   },
 
-  uploadMedia: async (file) => {
+  uploadMedia: async (files) => {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
 
     const formData = new FormData();
-    formData.append('media', file);
+    // Append each file to the 'media' field to match backend upload.array('media')
+    files.forEach(file => {
+      formData.append('media', file);
+    });
 
     const res = await fetch(`${API_URL}/upload`, {
       method: 'POST',
@@ -128,7 +131,7 @@ export const api = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Upload failed');
-    return data;
+    return data; // Returns { files: [{url, type}, ...] }
   },
 
   logout: () => {

@@ -174,23 +174,19 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
       title: decrypt(n.title),
       content: decrypt(n.content),
       is_revealed: n.is_revealed ? 1 : 0,
-      is_seen: unseenForRecipient.some(u => u.id === n.id) ? true : n.is_seen
+      is_seen: unseenForRecipient.some(u => u.id === n.id) ? true : n.is_seen,
+      media: n.media || []
     }));
 
-    // Generate temporary signed URLs for any notes with media
+    // Generate temporary signed URLs for all media items
     const notesWithMedia = await Promise.all(decryptedNotes.map(async (n) => {
-      let media_signed_url = null;
-      if (n.media_url) {
+      const mediaWithUrls = await Promise.all(n.media.map(async (m) => {
         const { data, error } = await supabase.storage
           .from('note-media')
-          .createSignedUrl(n.media_url, 60 * 60); // 1 hour validity
-        if (data) {
-          media_signed_url = data.signedUrl;
-        } else {
-          console.error("Error signing URL:", error);
-        }
-      }
-      return { ...n, media_signed_url };
+          .createSignedUrl(m.url, 60 * 60);
+        return { ...m, signed_url: data?.signedUrl || null };
+      }));
+      return { ...n, media: mediaWithUrls };
     }));
 
     res.json(notesWithMedia);
@@ -201,7 +197,7 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/notes', authenticateToken, async (req, res) => {
-  const { title, content, color, recipient_username, is_revealed, media_url, media_type } = req.body;
+  const { title, content, color, recipient_username, is_revealed, media } = req.body;
   
   try {
     let recipient_id = null;
@@ -238,8 +234,7 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
         author_id: req.user.id,
         recipient_id,
         is_revealed: is_revealed || false,
-        media_url: media_url || null,
-        media_type: media_type || null
+        media: media || []
       })
       .select()
       .single();
@@ -261,28 +256,33 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/upload', authenticateToken, upload.single('media'), async (req, res) => {
+app.post('/api/upload', authenticateToken, upload.array('media', 5), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'No files uploaded' });
     
-    // Create unique filename
-    const fileExt = req.file.originalname.split('.').pop() || 'tmp';
-    const fileName = `${req.user.id}-${Date.now()}.${fileExt}`;
-    
-    // Upload directly to Supabase Storage buffer
-    const { error } = await supabase.storage
-      .from('note-media')
-      .upload(fileName, req.file.buffer, { 
-        contentType: req.file.mimetype,
-        upsert: false // Don't overwrite existing
-      });
+    const uploadResults = await Promise.all(req.files.map(async (file) => {
+      const fileExt = file.originalname.split('.').pop() || 'tmp';
+      const fileName = `${req.user.id}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       
-    if (error) throw error;
+      const { error } = await supabase.storage
+        .from('note-media')
+        .upload(fileName, file.buffer, { 
+          contentType: file.mimetype,
+          upsert: false
+        });
+        
+      if (error) throw error;
+      return { url: fileName, type: file.mimetype };
+    }));
     
-    res.json({ media_url: fileName, media_type: req.file.mimetype });
+    res.json({ files: uploadResults });
   } catch (err) {
-    console.error('Media upload error:', err);
-    res.status(500).json({ message: 'Media upload failed', error: err.message });
+    console.error('Media upload error detail:', err);
+    res.status(500).json({ 
+      message: 'Media upload failed', 
+      error: err.message,
+      detail: err.error || err.code || null
+    });
   }
 });
 

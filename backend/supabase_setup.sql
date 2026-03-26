@@ -55,18 +55,19 @@ CREATE POLICY "Allow Service Role to manage notes" ON notes FOR ALL USING (auth.
 -- =        PHASE 3: MEDIA SUPPORT          =
 -- ==========================================
 
--- 1. Add media columns to notes table
+-- 1. Update notes table: Replace single columns with a JSONB array
 ALTER TABLE notes 
-ADD COLUMN IF NOT EXISTS media_url TEXT,
-ADD COLUMN IF NOT EXISTS media_type TEXT;
+DROP COLUMN IF EXISTS media_url,
+DROP COLUMN IF EXISTS media_type,
+ADD COLUMN IF NOT EXISTS media JSONB DEFAULT '[]'::jsonb;
 
--- 2. Create the Private Storage Bucket for photos/videos
+-- 2. Create the Private Storage Bucket for photos/videos (already done usually, but here for completeness)
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('note-media', 'note-media', false)
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Allow Service Role to manage the storage bucket 
--- (Our Node backend will handle all uploads and generate signed URLs for viewing)
+-- 3. Allow Service Role to manage the storage bucket (same as before)
+DROP POLICY IF EXISTS "Service Role Storage Policy" ON storage.objects;
 CREATE POLICY "Service Role Storage Policy"
 ON storage.objects FOR ALL 
 USING (bucket_id = 'note-media' AND auth.role() = 'service_role');

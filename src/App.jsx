@@ -34,7 +34,7 @@ function App() {
   const [noteToDelete, setNoteToDelete] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [newNote, setNewNote] = useState({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' })
-  const [mediaFile, setMediaFile] = useState(null)
+  const [mediaFiles, setMediaFiles] = useState([])
   const [isUploading, setIsUploading] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [passwordData, setPasswordData] = useState({ current: '', new: '' })
@@ -174,9 +174,9 @@ function App() {
 
     // Offline? Save as draft instead
     if (!isOnline && !editingNote) {
-      if (mediaFile) {
+      if (mediaFiles.length > 0) {
         alert("You must be online to attach photos or videos.");
-        return; // Simplifying drafts to not handle local media for now
+        return; 
       }
       const draft = { ...newNote, id: `draft_${Date.now()}`, isDraft: true, created_at: new Date().toISOString() };
       const updated = [...drafts, draft];
@@ -184,20 +184,21 @@ function App() {
       localStorage.setItem('notebuddy_drafts', JSON.stringify(updated));
       setIsAdding(false);
       setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' });
-      setMediaFile(null);
+      setMediaFiles([]);
       return;
     }
 
     setIsUploading(true);
-    let uploadedMedia = null;
+    let uploadedMediaList = [];
     try {
-      if (mediaFile) {
-        uploadedMedia = await api.uploadMedia(mediaFile);
+      if (mediaFiles.length > 0) {
+        const uploadResult = await api.uploadMedia(mediaFiles);
+        uploadedMediaList = uploadResult.files;
       }
 
       const notePayload = {
         ...newNote,
-        ...(uploadedMedia ? { media_url: uploadedMedia.media_url, media_type: uploadedMedia.media_type } : {})
+        media: uploadedMediaList
       };
 
       if (editingNote) {
@@ -209,7 +210,7 @@ function App() {
       setIsAdding(false);
       setEditingNote(null);
       setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' });
-      setMediaFile(null);
+      setMediaFiles([]);
       fetchNotes();
       
       if (!editingNote) {
@@ -221,7 +222,9 @@ function App() {
         });
       }
     } catch (err) {
-      alert(err.message || "Failed to save note");
+      const errorMsg = err.message || "Failed to save note";
+      const errorDetail = err.detail ? ` (${err.detail})` : "";
+      alert(`${errorMsg}${errorDetail}`);
     } finally {
       setIsUploading(false);
     }
@@ -236,7 +239,7 @@ function App() {
       is_revealed: note.is_revealed === 1,
       recipient_username: note.recipient_name || ''
     });
-    setMediaFile(null);
+    setMediaFiles([]);
     setIsAdding(true);
   }
 
@@ -567,7 +570,7 @@ function App() {
       <AnimatePresence>
         {isAdding && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsAdding(false); setEditingNote(null); setMediaFile(null); }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsAdding(false); setEditingNote(null); setMediaFiles([]); }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl relative z-50 border-2 border-primary/5">
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
                 {editingNote ? 'Edit Note' : 'Write a Note'} <Heart className="text-primary" size={20} fill="currentColor" />
@@ -586,26 +589,35 @@ function App() {
                 <input type="text" placeholder="Give it a sweet title..." value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none border-b-2 border-gray-100 focus:border-primary outline-none focus:ring-0 font-bold text-gray-800 transition-all shadow-inner" />
                 <textarea placeholder="Pour your heart out here..." rows={4} value={newNote.content} onChange={e => setNewNote({...newNote, content: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none border-b-2 border-gray-100 focus:border-primary outline-none focus:ring-0 font-bold text-gray-800 transition-all resize-none shadow-inner leading-relaxed" />
                 
-                <div className="flex items-center gap-3">
-                  <label className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border-2 border-dashed border-primary/30 rounded-2xl cursor-pointer hover:bg-primary/5 transition-colors group">
+                <div className="flex flex-col gap-3">
+                  <label className="flex items-center justify-center gap-2 p-3 bg-white border-2 border-dashed border-primary/30 rounded-2xl cursor-pointer hover:bg-primary/5 transition-colors group">
                     <ImagePlus className="text-secondary group-hover:text-primary transition-colors" size={20} />
-                    <span className="text-xs font-bold text-gray-500 group-hover:text-primary transition-colors truncate px-2">
-                      {mediaFile ? mediaFile.name : (editingNote?.media_url ? 'Replace media' : 'Attach Photo/Video')}
+                    <span className="text-xs font-bold text-gray-500 group-hover:text-primary transition-colors">
+                      {editingNote?.media?.length > 0 ? 'Add more media' : 'Attach Photos/Videos'}
                     </span>
                     <input 
                       type="file" 
                       accept="image/*,video/*" 
+                      multiple
                       className="hidden" 
-                      onChange={(e) => setMediaFile(e.target.files[0])}
+                      onChange={(e) => setMediaFiles([...mediaFiles, ...Array.from(e.target.files)])}
                     />
                   </label>
-                  {mediaFile && (
-                    <button 
-                      onClick={() => setMediaFile(null)}
-                      className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-colors"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+
+                  {mediaFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-100 max-h-32 overflow-y-auto">
+                      {mediaFiles.map((file, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm">
+                          <span className="text-[10px] font-bold text-gray-600 truncate max-w-[100px]">{file.name}</span>
+                          <button 
+                            onClick={() => setMediaFiles(mediaFiles.filter((_, i) => i !== idx))}
+                            className="text-red-400 hover:text-red-610 transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 

@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Heart, Sparkles, Unlock, Lock, Eye, Send, Trash2, Edit2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Heart, Sparkles, Unlock, Lock, Eye, Send, Trash2, Edit2, Maximize2, X, Image as ImageIcon, Film } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -11,6 +10,7 @@ function cn(...inputs) {
 const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, currentUser, onDelete, onEdit }) => {
   const isOwner = note.author_id === currentUser.id;
   const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState(null);
   
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -78,27 +78,32 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
           {isExpanded ? note.content : getPreview(note.content)}
         </p>
         
-        {note.media_signed_url && (
-          <div className="mt-3 rounded-xl overflow-hidden shadow-inner border border-black/10 bg-black/5 flex items-center justify-center">
-            {note.media_type && note.media_type.startsWith('video/') ? (
-              <video 
-                src={note.media_signed_url} 
-                controls={isExpanded}
-                autoPlay={false}
-                muted
-                className={cn("w-full object-cover transition-all duration-300", isExpanded ? "max-h-[400px]" : "h-24 opacity-80")}
-              />
-            ) : (
-              <img 
-                src={note.media_signed_url} 
-                alt="Attached memory" 
-                className={cn("w-full object-cover transition-all duration-300", isExpanded ? "max-h-[400px]" : "h-24 opacity-80")}
-              />
-            )}
+        {note.media && note.media.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {note.media.map((m, idx) => (
+              <motion.div 
+                key={idx}
+                whileHover={{ scale: 1.05, rotate: idx % 2 === 0 ? 2 : -2 }}
+                onClick={(e) => { e.stopPropagation(); setSelectedMedia(m); }}
+                className="relative w-16 h-16 rounded-xl overflow-hidden shadow-md border-2 border-white group/thumb"
+              >
+                {m.type?.startsWith('video/') ? (
+                   <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                     <Film size={20} className="text-gray-400" />
+                     <div className="absolute inset-0 bg-black/20 group-hover/thumb:bg-black/0 transition-colors" />
+                   </div>
+                ) : (
+                  <img src={m.signed_url} alt="Thumbnail" className="w-full h-full object-cover" />
+                )}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 bg-black/20 transition-opacity">
+                  <Maximize2 size={12} className="text-white" />
+                </div>
+              </motion.div>
+            ))}
           </div>
         )}
 
-        {!isExpanded && note.content.split(' ').length > 5 && !note.media_signed_url && (
+        {isExpanded && !note.media?.length && note.content.split(' ').length > 5 && (
           <p className="text-xs text-primary font-black mt-2 text-center">
             Tap to read more ↓
           </p>
@@ -171,6 +176,48 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
           )}
         </div>
       </div>
+
+      {/* Full-Screen Media Viewer Modal */}
+      <AnimatePresence>
+        {selectedMedia && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-8"
+            onClick={() => setSelectedMedia(null)}
+          >
+            <button 
+              className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all z-10"
+              onClick={() => setSelectedMedia(null)}
+            >
+              <X size={24} />
+            </button>
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="max-w-5xl w-full max-h-full flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {selectedMedia.type.startsWith('video/') ? (
+                <video 
+                  src={selectedMedia.signed_url} 
+                  controls 
+                  autoPlay 
+                  className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl"
+                />
+              ) : (
+                <img 
+                  src={selectedMedia.signed_url} 
+                  alt="Full-size memory" 
+                  className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl"
+                />
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
