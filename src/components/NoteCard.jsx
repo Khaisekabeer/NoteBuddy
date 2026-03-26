@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Sparkles, Unlock, Lock, Eye, Send, Trash2, Edit2, Maximize2, X, Image as ImageIcon, Film } from 'lucide-react';
 import { clsx } from 'clsx';
