@@ -33,7 +33,14 @@ function App() {
   const [editingNote, setEditingNote] = useState(null)
   const [noteToDelete, setNoteToDelete] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [newNote, setNewNote] = useState({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' })
+  const [newNote, setNewNote] = useState(() => {
+    try {
+      const saved = localStorage.getItem('notebuddy_unsaved_note');
+      return saved ? JSON.parse(saved) : { title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' };
+    } catch {
+      return { title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' };
+    }
+  })
   const [mediaFiles, setMediaFiles] = useState([])
   const [isUploading, setIsUploading] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -124,6 +131,13 @@ function App() {
       };
     }
   }, [currentUser]);
+
+  // AUTO-SAVE: Save the current newNote state to localStorage whenever it changes
+  useEffect(() => {
+    if (!editingNote && (newNote.title || newNote.content || newNote.recipient_username)) {
+      localStorage.setItem('notebuddy_unsaved_note', JSON.stringify(newNote));
+    }
+  }, [newNote, editingNote]);
 
   const checkAuth = async () => {
     try {
@@ -216,6 +230,7 @@ function App() {
       setIsAdding(false);
       setEditingNote(null);
       setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' });
+      localStorage.removeItem('notebuddy_unsaved_note');
       setMediaFiles([]);
       fetchNotes();
       
@@ -608,7 +623,7 @@ function App() {
                     </span>
                     <input 
                       type="file" 
-                      accept="image/*,video/*" 
+                      accept="image/*,video/*,.heic,.HEIC,.heif,.HEIF,.jpg,.jpeg,.JPG,.JPEG,.png,.PNG" 
                       multiple
                       className="hidden" 
                       onChange={(e) => setMediaFiles([...mediaFiles, ...Array.from(e.target.files)])}
