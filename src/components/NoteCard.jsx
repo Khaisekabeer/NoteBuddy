@@ -8,10 +8,107 @@ function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
+const MediaCarousel = ({ media }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const handleNext = (e) => {
+    e.stopPropagation();
+    setActiveIndex((prev) => (prev + 1) % media.length);
+  };
+
+  const handlePrev = (e) => {
+    e.stopPropagation();
+    setActiveIndex((prev) => (prev - 1 + media.length) % media.length);
+  };
+
+  return (
+    <div className="relative mt-6 h-64 w-full perspective-1000 flex items-center justify-center overflow-hidden rounded-3xl bg-black/5 border border-white/20 backdrop-blur-sm">
+      <div className="relative w-full h-full flex items-center justify-center">
+        <AnimatePresence mode="popLayout">
+          {media.map((item, index) => {
+            const offset = (index - activeIndex + media.length) % media.length;
+            const normalizedOffset = offset > media.length / 2 ? offset - media.length : offset;
+            const isCenter = normalizedOffset === 0;
+            const absOffset = Math.abs(normalizedOffset);
+
+            // Hide items that are too far away
+            if (absOffset > 2) return null;
+
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{
+                  opacity: 1 - absOffset * 0.3,
+                  scale: 1 - absOffset * 0.2,
+                  x: normalizedOffset * 120,
+                  z: -absOffset * 100,
+                  rotateY: normalizedOffset * -30,
+                  zIndex: 10 - absOffset,
+                }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="absolute w-44 h-56 rounded-2xl overflow-hidden shadow-2xl cursor-pointer border-2 border-white/50"
+                onClick={(e) => { e.stopPropagation(); setActiveIndex(index); }}
+              >
+                {item.type.startsWith('video/') ? (
+                  <video 
+                    src={item.signed_url} 
+                    className="w-full h-full object-cover"
+                    autoPlay={isCenter}
+                    muted
+                    loop
+                    playsInline
+                  />
+                ) : (
+                  <img 
+                    src={item.signed_url} 
+                    alt="" 
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                {!isCenter && <div className="absolute inset-0 bg-black/20" />}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      {media.length > 1 && (
+        <>
+          <button 
+            onClick={handlePrev}
+            className="absolute left-4 z-20 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-md transition-all active:scale-90"
+          >
+            ←
+          </button>
+          <button 
+            onClick={handleNext}
+            className="absolute right-4 z-20 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-md transition-all active:scale-90"
+          >
+            →
+          </button>
+        </>
+      )}
+      
+      <div className="absolute bottom-4 flex gap-1.5 z-20">
+        {media.map((_, i) => (
+          <div 
+            key={i} 
+            className={cn(
+              "w-1.5 h-1.5 rounded-full transition-all duration-300",
+              i === activeIndex ? "bg-white w-4" : "bg-white/30"
+            )} 
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, currentUser, onDelete, onEdit }) => {
   const isOwner = note.author_id === currentUser.id;
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedMedia, setSelectedMedia] = useState(null);
   
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -79,28 +176,15 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
           {isExpanded ? note.content : getPreview(note.content)}
         </p>
         
-        {note.media && note.media.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {note.media.map((m, idx) => (
-              <motion.div 
-                key={idx}
-                whileHover={{ scale: 1.05, rotate: idx % 2 === 0 ? 2 : -2 }}
-                onClick={(e) => { e.stopPropagation(); setSelectedMedia(m); }}
-                className="relative w-16 h-16 rounded-xl overflow-hidden shadow-md border-2 border-white group/thumb"
-              >
-                {m.type?.startsWith('video/') ? (
-                   <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                     <Film size={20} className="text-gray-400" />
-                     <div className="absolute inset-0 bg-black/20 group-hover/thumb:bg-black/0 transition-colors" />
-                   </div>
-                ) : (
-                  <img src={m.signed_url} alt="Thumbnail" className="w-full h-full object-cover" />
-                )}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 bg-black/20 transition-opacity">
-                  <Maximize2 size={12} className="text-white" />
-                </div>
-              </motion.div>
-            ))}
+        {note.media && note.media.length > 0 && isExpanded && (
+          <MediaCarousel media={note.media} />
+        )}
+
+        {!isExpanded && note.media && note.media.length > 0 && (
+          <div className="mt-3 flex gap-1">
+            <div className="px-2 py-1 bg-white/40 backdrop-blur-sm rounded-lg border border-white/20 text-[9px] font-black text-primary uppercase tracking-tighter">
+               {note.media.length} {note.media.length === 1 ? 'Memory' : 'Memories'} Attached ✨
+            </div>
           </div>
         )}
 
@@ -177,48 +261,6 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
           )}
         </div>
       </div>
-
-      {/* Full-Screen Media Viewer Modal */}
-      <AnimatePresence>
-        {selectedMedia && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-8"
-            onClick={() => setSelectedMedia(null)}
-          >
-            <button 
-              className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all z-10"
-              onClick={() => setSelectedMedia(null)}
-            >
-              <X size={24} />
-            </button>
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="max-w-5xl w-full max-h-full flex items-center justify-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {selectedMedia.type.startsWith('video/') ? (
-                <video 
-                  src={selectedMedia.signed_url} 
-                  controls 
-                  autoPlay 
-                  className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl"
-                />
-              ) : (
-                <img 
-                  src={selectedMedia.signed_url} 
-                  alt="Full-size memory" 
-                  className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl"
-                />
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   )
 }

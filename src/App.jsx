@@ -191,9 +191,15 @@ function App() {
     setIsUploading(true);
     let uploadedMediaList = [];
     try {
-      if (mediaFiles.length > 0) {
-        const uploadResult = await api.uploadMedia(mediaFiles);
-        uploadedMediaList = uploadResult.files;
+      // Filter existing files (which already have URLs) vs new files (which are File objects)
+      const existingMedia = mediaFiles.filter(f => f.isExisting).map(({ isExisting, signed_url, ...m }) => m);
+      const newFiles = mediaFiles.filter(f => !f.isExisting);
+
+      if (newFiles.length > 0) {
+        const uploadResult = await api.uploadMedia(newFiles);
+        uploadedMediaList = [...existingMedia, ...uploadResult.files];
+      } else {
+        uploadedMediaList = existingMedia;
       }
 
       const notePayload = {
@@ -239,7 +245,12 @@ function App() {
       is_revealed: note.is_revealed === 1,
       recipient_username: note.recipient_name || ''
     });
-    setMediaFiles([]);
+    // Load existing media into mediaFiles state for editing/deletion
+    if (note.media && note.media.length > 0) {
+      setMediaFiles(note.media.map(m => ({ ...m, isExisting: true })));
+    } else {
+      setMediaFiles([]);
+    }
     setIsAdding(true);
   }
 
@@ -608,10 +619,14 @@ function App() {
                     <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-100 max-h-32 overflow-y-auto">
                       {mediaFiles.map((file, idx) => (
                         <div key={idx} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm">
-                          <span className="text-[10px] font-bold text-gray-600 truncate max-w-[100px]">{file.name}</span>
+                          {file.isExisting ? (
+                            <span className="text-[10px] font-bold text-primary truncate max-w-[100px]">Existing Memory {idx + 1}</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-gray-600 truncate max-w-[100px]">{file.name}</span>
+                          )}
                           <button 
                             onClick={() => setMediaFiles(mediaFiles.filter((_, i) => i !== idx))}
-                            className="text-red-400 hover:text-red-610 transition-colors"
+                            className="text-red-400 hover:text-red-500 transition-colors"
                           >
                             <Trash2 size={12} />
                           </button>
