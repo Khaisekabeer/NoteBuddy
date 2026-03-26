@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Search, Heart, User, Users, StickyNote, Eye, Lock, Unlock, Sparkles, Send, Trash2, LogOut, Settings, Key, ShieldCheck, Edit2, WifiOff, CloudUpload } from 'lucide-react'
+import { Plus, Search, Heart, User, Users, StickyNote, Eye, Lock, Unlock, Sparkles, Send, Trash2, LogOut, Settings, Key, ShieldCheck, Edit2, WifiOff, CloudUpload, ImagePlus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -8,350 +8,20 @@ import knotImg from './assets/knot_transparent.png'
 import ribbonImg from './assets/ribbon.png'
 import { api } from './services/api'
 import { io } from 'socket.io-client'
+import FloatingHearts from './components/FloatingHearts'
+import InaugurationCeremony from './components/InaugurationCeremony'
+import AuthScreen from './components/AuthScreen'
+import NoteCard from './components/NoteCard'
 
 
-const socket = io(import.meta.env.VITE_API_URL || window.location.origin);
-
-const FloatingHearts = () => {
-  const [hearts, setHearts] = useState([]);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const id = Math.random();
-      const left = Math.random() * 95;
-      const size = Math.random() * (30 - 15) + 15;
-      const duration = Math.random() * (20 - 10) + 10;
-      setHearts(prev => [...prev, { id, left, size, duration }]);
-      setTimeout(() => setHearts(prev => prev.filter(h => h.id !== id)), duration * 1000);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-      {hearts.map(h => (
-        <div key={h.id} className="floating-heart text-primary/15" style={{ left: `${h.left}%`, fontSize: `${h.size}px`, animationDuration: `${h.duration}s`, bottom: '-50px' }}>
-          <Heart fill="currentColor" />
-        </div>
-      ))}
-    </div>
-  );
-};
+// Initialize socket without auto-connecting yet
+const socket = io(import.meta.env.VITE_API_URL || window.location.origin, {
+  autoConnect: false
+});
 
 function cn(...inputs) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
-
-const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, currentUser, onDelete, onEdit }) => {
-  const isOwner = String(note.author_id) === String(currentUser.id);
-  const [isExpanded, setIsExpanded] = React.useState(false);
-  
-  const formatDate = (dateString) => {
-    // Append Z to force UTC parsing so it converts to local time correctly
-    const date = new Date(dateString.endsWith('Z') ? dateString : dateString + 'Z');
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getPreview = (text) => {
-    const words = text.split(' ');
-    if (words.length <= 5) return text;
-    return words.slice(0, 5).join(' ') + '...';
-  };
-
-  const handleRevealClick = () => {
-    if (isOwner) {
-      if (!note.is_revealed) {
-        onReveal(note.id);
-      } else {
-        onUnreveal(note.id);
-      }
-    }
-  };
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9, y: 20 }}
-      whileHover={{ y: -10, rotateZ: 1, scale: 1.02, transition: { type: "spring", stiffness: 300 } }}
-      className={cn(
-        "card-cute min-h-[220px] flex flex-col justify-between relative group shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-t-2 border-white/80 cursor-pointer transition-all duration-300",
-        note.color
-      )}
-      onClick={() => {
-        setIsExpanded(!isExpanded);
-        if (!isExpanded && onSeen) onSeen(note.id);
-      }}
-    >
-      <div className="absolute top-4 right-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex gap-2 z-10">
-        {isOwner && (
-          <>
-            <button onClick={(e) => { e.stopPropagation(); onEdit(note); }} className="p-2 bg-white/80 hover:bg-white rounded-full text-primary shadow-md hover:scale-110 transition-all">
-              <Edit2 size={16} />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); onDelete(note.id); }} className="p-2 bg-white/80 hover:bg-white rounded-full text-red-500 shadow-md hover:scale-110 transition-all">
-              <Trash2 size={16} />
-            </button>
-          </>
-        )}
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md">
-              {note.is_revealed ? <Sparkles size={14} className="text-yellow-500" /> : <Unlock size={14} className="text-primary" />}
-            </div>
-            <h3 className="font-extrabold text-lg leading-tight text-gray-900 drop-shadow-sm">
-              {note.title}
-            </h3>
-          </div>
-          <span className="text-[10px] font-black text-gray-500 bg-white/40 px-2 py-1 rounded-full">{formatDate(note.created_at)}</span>
-        </div>
-        
-        <p className="text-sm leading-relaxed font-bold text-gray-800 bg-white/20 p-3 rounded-2xl backdrop-blur-sm border border-white/30 break-words">
-          {isExpanded ? note.content : getPreview(note.content)}
-        </p>
-        
-        {!isExpanded && note.content.split(' ').length > 5 && (
-          <p className="text-xs text-primary font-black mt-2 text-center">
-            Tap to read more ↓
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-wrap justify-between items-center gap-y-3 mt-6 pt-4 border-t border-black/10">
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
-           <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-[10px] font-black shadow-md uppercase text-primary border-2 border-primary/10 shrink-0">
-             {note.author_name ? note.author_name[0] : '?'}
-           </div>
-           <div className="flex flex-col items-start overflow-hidden">
-             <span className="text-xs font-black text-gray-900 uppercase tracking-wider truncate">
-              {isOwner ? 'Me' : note.author_name}
-             </span>
-             {note.recipient_name && (
-               <span className="text-[9px] font-bold text-gray-500 uppercase truncate">
-                 To: {note.recipient_name}
-               </span>
-             )}
-          </div>
-          {/* Seen badge — shown to author */}
-          {isOwner && note.is_seen && (
-            <span className="flex items-center gap-1 text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 shrink-0">
-              <Eye size={10} /> Seen
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* Like button — shown to recipient on revealed notes */}
-          {!isOwner && note.is_revealed && (
-            <button
-              onClick={(e) => { e.stopPropagation(); note.is_liked ? onUnlike(note.id) : onLike(note.id); }}
-              className={`flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-xl font-black transition-all active:scale-90 border-2 ${
-                note.is_liked
-                  ? 'bg-red-50 text-red-500 border-red-200 shadow-inner'
-                  : 'bg-white/60 text-gray-400 border-gray-200 hover:border-red-300 hover:text-red-400'
-              }`}
-            >
-              <Heart size={12} fill={note.is_liked ? 'currentColor' : 'none'} />
-              {note.is_liked ? 'Liked' : 'Like'}
-            </button>
-          )}
-
-          {/* Liked badge — shown to author when recipient liked */}
-          {isOwner && note.is_liked && (
-            <span className="flex items-center gap-1 text-[10px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-              <Heart size={10} fill="currentColor" /> Liked!
-            </span>
-          )}
-
-          {isOwner && !note.is_revealed && (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
-              className="flex items-center gap-1.5 text-[11px] bg-primary text-white hover:bg-primary-dark px-3 py-1.5 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-2 border-black/20"
-            >
-              <Send size={10} /> Reveal
-            </button>
-          )}
-
-          {isOwner && note.is_revealed && (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
-              className="flex items-center gap-1.5 text-[11px] bg-amber-500 text-white hover:bg-amber-600 px-3 py-1.5 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-2 border-black/20"
-            >
-              <Lock size={10} /> Unreveal
-            </button>
-          )}
-
-          {!isOwner && note.is_revealed && (
-            <div className="flex items-center gap-1 text-[9px] font-black text-green-800 bg-green-100 px-2 py-1 rounded-lg shadow-inner border border-green-200">
-              REVEALED 🌹
-            </div>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-const InaugurationCeremony = ({ onComplete }) => {
-  const [isCut, setIsCut] = useState(false);
-
-  const handleCut = () => {
-    setIsCut(true);
-    triggerConfetti();
-    setTimeout(() => {
-      onComplete();
-    }, 2000);
-  };
-
-  const triggerConfetti = () => {
-    const end = Date.now() + 2 * 1000;
-    const colors = ['#ffb7b2', '#ffccb6', '#fdfd96', '#ffffff'];
-
-    (function frame() {
-      confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors });
-      confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors });
-      if (Date.now() < end) requestAnimationFrame(frame);
-    }());
-  };
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      exit={{ opacity: 0, transition: { duration: 1 } }}
-      className="fixed inset-0 z-[100] bg-white/90 backdrop-blur-3xl flex flex-col items-center justify-center cursor-pointer"
-      onClick={handleCut}
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10" />
-      
-      {/* Ribbon Line Left */}
-      <motion.div 
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: isCut ? 0 : 1 }}
-        transition={{ duration: 1, ease: "easeInOut", delay: 0.5 }}
-        className="absolute top-1/2 left-0 right-1/2 h-24 shadow-lg origin-left z-0"
-        style={{ 
-          backgroundImage: `url(${ribbonImg})`, 
-          backgroundSize: 'cover', 
-          backgroundPosition: 'center',
-          transform: 'translateY(-50%)'
-        }}
-      />
-      
-      {/* Ribbon Line Right */}
-      <motion.div 
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: isCut ? 0 : 1 }}
-        transition={{ duration: 1, ease: "easeInOut", delay: 0.5 }}
-        className="absolute top-1/2 left-1/2 right-0 h-24 shadow-lg origin-right z-0"
-        style={{ 
-          backgroundImage: `url(${ribbonImg})`, 
-          backgroundSize: 'cover', 
-          backgroundPosition: 'center',
-          transform: 'translateY(-50%)' 
-        }}
-      />
-
-      <motion.div
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: isCut ? 0 : 1, rotate: isCut ? 180 : 0 }}
-        transition={{ type: "spring", damping: 15 }}
-        className="relative z-20 drop-shadow-[0_20px_20px_rgba(0,0,0,0.3)] filter translate-y-30" // Moved down further to align with ribbon
-      >
-        <img src={knotImg} alt="Ribbon Knot" className="w-72 h-72 object-contain drop-shadow-2xl" /> {/* Slightly larger knot */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-             <div className="bg-white/80 backdrop-blur-md px-6 py-2 rounded-full text-primary font-black text-xs uppercase tracking-widest shadow-xl border border-white/60 animate-pulse">
-                Tap to Open
-             </div>
-        </div>
-      </motion.div>
-
-      <motion.div 
-         initial={{ opacity: 0, y: 50 }}
-         animate={{ opacity: 1, y: 0 }}
-         transition={{ delay: 1 }}
-         className="mt-12 text-center relative z-10"
-      >
-         <h1 className="text-4xl font-black text-primary mb-2 drop-shadow-md"> Welcome Home Miss Afiii..</h1>
-         <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Tap to inaugurate the vault </p>
-      </motion.div>
-
-    </motion.div>
-  );
-};
-
-const AuthScreen = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      const data = await api.login(username, password);
-      if (data.user) onLogin(data.user);
-      else setError(data.message || 'Login failed');
-    } catch (err) {
-      setError('Something went wrong. Is the backend running?');
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
-      <FloatingHearts />
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/30 rounded-full blur-[100px]" />
-      
-      <motion.div 
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: "spring", bounce: 0.4 }}
-        className="bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-[0_30px_70px_rgba(0,0,0,0.1)] w-full max-w-sm border-2 border-white relative z-10"
-      >
-        <div className="flex flex-col items-center mb-8 relative z-20">
-           <div className="p-3 bg-white rounded-[2rem] shadow-xl border-4 border-primary/20 mb-4">
-             <img src="/logo.png" className="w-20 h-20" />
-           </div>
-           <h1 className="text-4xl font-black text-primary drop-shadow-sm">NoteBuddy</h1>
-           <p className="text-gray-600 font-bold text-sm text-center mt-2 px-4">A private world of memories. </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5 relative z-20">
-           <div className="space-y-1">
-             <label className="text-[10px] font-black text-primary uppercase px-4 tracking-widest">Username</label>
-             <input 
-              type="text" 
-              placeholder="Your name..." 
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              className="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-primary outline-none font-bold shadow-inner text-gray-800" 
-             />
-           </div>
-           <div className="space-y-1">
-             <label className="text-[10px] font-black text-primary uppercase px-4 tracking-widest">Password</label>
-             <input 
-              type="password" 
-              placeholder="••••••••" 
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-primary outline-none font-bold shadow-inner text-gray-800" 
-             />
-           </div>
-           {error && <p className="text-red-500 text-xs font-black text-center animate-bounce">{error}</p>}
-           <button className="btn-cute bg-primary text-white justify-center py-4 shadow-2xl shadow-primary/40 border-b-4 border-primary/20 active:border-b-0 hover:scale-[1.02]">
-             Unlock Our Memories 🔑
-           </button>
-        </form>
-
-
-      </motion.div>
-    </div>
-  );
-};
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
@@ -364,6 +34,8 @@ function App() {
   const [noteToDelete, setNoteToDelete] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [newNote, setNewNote] = useState({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' })
+  const [mediaFile, setMediaFile] = useState(null)
+  const [isUploading, setIsUploading] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [passwordData, setPasswordData] = useState({ current: '', new: '' })
   const [settingsMessage, setSettingsMessage] = useState({ text: '', type: '' })
@@ -398,6 +70,8 @@ function App() {
     const token = localStorage.getItem('token');
     if (token) {
       checkAuth();
+      // 🚀 PERFORMANCE FIX: Fetch notes immediately if we have a token (Parallel fetching)
+      fetchNotes(token);
     } else {
       setIsLoading(false);
     }
@@ -419,7 +93,16 @@ function App() {
       // Persist user to localStorage for offline awareness
       localStorage.setItem('notebuddy_user', JSON.stringify(currentUser));
 
+      const token = localStorage.getItem('token');
+      if (token) {
+        socket.auth = { token };
+        socket.connect();
+      }
+
+      // Note: fetchNotes is now also called on initial mount in the first useEffect, 
+      // but we keep a call here in case of dynamic user switching.
       fetchNotes();
+      
       socket.emit('join', currentUser.id);
 
       const handleNoteRevealed = () => { fetchNotes(); triggerConfetti(); };
@@ -431,11 +114,13 @@ function App() {
       socket.on('note_unrevealed', handleNoteUnrevealed);
       socket.on('note_seen', handleNoteSeen);
       socket.on('note_liked', handleNoteLiked);
+      
       return () => {
         socket.off('note_revealed', handleNoteRevealed);
         socket.off('note_unrevealed', handleNoteUnrevealed);
         socket.off('note_seen', handleNoteSeen);
         socket.off('note_liked', handleNoteLiked);
+        socket.disconnect();
       };
     }
   }, [currentUser]);
@@ -456,8 +141,9 @@ function App() {
     }
   };
 
-  const fetchNotes = async () => {
-    const data = await api.getNotes();
+  const fetchNotes = async (optionalToken) => {
+    // Pass the token explicitly if provided (useful for initial parallel load before api service has it)
+    const data = await api.getNotes(optionalToken);
     if (Array.isArray(data)) {
       setNotes(data);
     }
@@ -465,11 +151,10 @@ function App() {
 
   const handleSeen = async (id) => {
     const note = notes.find(n => n.id === id);
+    // Only mark as seen if it's a revealed note from someone else and not already seen
     if (note && String(note.author_id) !== String(currentUser.id) && note.is_revealed && !note.is_seen) {
-      // Optimistic update
-      setNotes(prev => prev.map(n => n.id === id ? { ...n, is_seen: true } : n));
       await api.markAsSeen(id);
-      // No re-fetch needed for simple seen marking
+      fetchNotes();
     }
   };
 
@@ -485,38 +170,60 @@ function App() {
   }
 
   const handleAddNote = async () => {
-    if (!newNote.title || !newNote.content) return;
+    if (!newNote.title || (!newNote.content && !mediaFile)) return;
 
     // Offline? Save as draft instead
     if (!isOnline && !editingNote) {
+      if (mediaFile) {
+        alert("You must be online to attach photos or videos.");
+        return; // Simplifying drafts to not handle local media for now
+      }
       const draft = { ...newNote, id: `draft_${Date.now()}`, isDraft: true, created_at: new Date().toISOString() };
       const updated = [...drafts, draft];
       setDrafts(updated);
       localStorage.setItem('notebuddy_drafts', JSON.stringify(updated));
       setIsAdding(false);
-      setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false });
+      setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' });
+      setMediaFile(null);
       return;
     }
 
-    if (editingNote) {
-      await api.updateNote(editingNote.id, newNote);
-    } else {
-      // Backend now handles auto-assigning recipient if none provided
-      await api.createNote(newNote);
-    }
-    
-    setIsAdding(false);
-    setEditingNote(null);
-    setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false });
-    fetchNotes();
-    
-    if (!editingNote) {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.8 },
-        colors: [newNote.color.replace('bg-[', '').replace(']', '')]
-      });
+    setIsUploading(true);
+    let uploadedMedia = null;
+    try {
+      if (mediaFile) {
+        uploadedMedia = await api.uploadMedia(mediaFile);
+      }
+
+      const notePayload = {
+        ...newNote,
+        ...(uploadedMedia ? { media_url: uploadedMedia.media_url, media_type: uploadedMedia.media_type } : {})
+      };
+
+      if (editingNote) {
+        await api.updateNote(editingNote.id, notePayload);
+      } else {
+        await api.createNote(notePayload);
+      }
+      
+      setIsAdding(false);
+      setEditingNote(null);
+      setNewNote({ title: '', content: '', color: 'bg-[#ffb7b2]', is_revealed: false, recipient_username: '' });
+      setMediaFile(null);
+      fetchNotes();
+      
+      if (!editingNote) {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.8 },
+          colors: [newNote.color.replace('bg-[', '').replace(']', '')]
+        });
+      }
+    } catch (err) {
+      alert(err.message || "Failed to save note");
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -529,30 +236,27 @@ function App() {
       is_revealed: note.is_revealed === 1,
       recipient_username: note.recipient_name || ''
     });
+    setMediaFile(null);
     setIsAdding(true);
   }
 
   const handleReveal = async (id) => {
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, is_revealed: 1 } : n));
     await api.revealNote(id);
-    fetchNotes(); // Re-fetch only once to sync any other server-side changes
+    fetchNotes();
     triggerConfetti();
   }
 
   const handleUnreveal = async (id) => {
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, is_revealed: 0, is_seen: false } : n));
     await api.unrevelNote(id);
     fetchNotes();
   }
 
   const handleLike = async (id) => {
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, is_liked: true } : n));
     await api.likeNote(id);
     fetchNotes();
   }
 
   const handleUnlike = async (id) => {
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, is_liked: false } : n));
     await api.unlikeNote(id);
     fetchNotes();
   }
@@ -605,8 +309,8 @@ function App() {
     // Logic:
     // 'mine' -> Show everything I wrote (revealed or not)
     // 'friend' -> Show only what the other person revealed to me
-    if (view === 'mine') return String(n.author_id) === String(currentUser.id);
-    if (view === 'friend') return String(n.author_id) !== String(currentUser.id);
+    if (view === 'mine') return n.author_id === currentUser.id;
+    if (view === 'friend') return n.author_id !== currentUser.id;
     return true;
   })
 
@@ -863,7 +567,7 @@ function App() {
       <AnimatePresence>
         {isAdding && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsAdding(false); setEditingNote(null); }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsAdding(false); setEditingNote(null); setMediaFile(null); }} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl relative z-50 border-2 border-primary/5">
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
                 {editingNote ? 'Edit Note' : 'Write a Note'} <Heart className="text-primary" size={20} fill="currentColor" />
@@ -882,6 +586,29 @@ function App() {
                 <input type="text" placeholder="Give it a sweet title..." value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none border-b-2 border-gray-100 focus:border-primary outline-none focus:ring-0 font-bold text-gray-800 transition-all shadow-inner" />
                 <textarea placeholder="Pour your heart out here..." rows={4} value={newNote.content} onChange={e => setNewNote({...newNote, content: e.target.value})} className="w-full p-4 bg-gray-50 rounded-2xl border-none border-b-2 border-gray-100 focus:border-primary outline-none focus:ring-0 font-bold text-gray-800 transition-all resize-none shadow-inner leading-relaxed" />
                 
+                <div className="flex items-center gap-3">
+                  <label className="flex-1 flex items-center justify-center gap-2 p-3 bg-white border-2 border-dashed border-primary/30 rounded-2xl cursor-pointer hover:bg-primary/5 transition-colors group">
+                    <ImagePlus className="text-secondary group-hover:text-primary transition-colors" size={20} />
+                    <span className="text-xs font-bold text-gray-500 group-hover:text-primary transition-colors truncate px-2">
+                      {mediaFile ? mediaFile.name : (editingNote?.media_url ? 'Replace media' : 'Attach Photo/Video')}
+                    </span>
+                    <input 
+                      type="file" 
+                      accept="image/*,video/*" 
+                      className="hidden" 
+                      onChange={(e) => setMediaFile(e.target.files[0])}
+                    />
+                  </label>
+                  {mediaFile && (
+                    <button 
+                      onClick={() => setMediaFile(null)}
+                      className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex flex-col gap-2">
                   <p className="text-[10px] font-bold text-primary uppercase px-1 tracking-widest">Theme Color</p>
                   <div className="flex gap-2">
@@ -900,8 +627,8 @@ function App() {
                   </div>
                 )}
 
-                <button onClick={handleAddNote} className="btn-cute bg-primary text-white justify-center py-4 mt-2 shadow-xl shadow-primary/30 font-bold border-b-4 border-primary/40 hover:scale-[1.02]">
-                  {editingNote ? 'Update Memory ✨' : 'Send Note 💌'}
+                <button onClick={handleAddNote} disabled={isUploading} className="btn-cute bg-primary text-white justify-center py-4 mt-2 shadow-xl shadow-primary/30 font-bold border-b-4 border-primary/40 hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100">
+                  {isUploading ? 'Uploading & Saving... ⏳' : (editingNote ? 'Update Memory ✨' : 'Send Note 💌')}
                 </button>
               </div>
             </motion.div>

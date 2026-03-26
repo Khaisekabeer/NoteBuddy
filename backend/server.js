@@ -5,7 +5,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const CryptoJS = require('crypto-js');
 const path = require('path');
+const multer = require('multer');
 const { supabase, initDb } = require('./db');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB limit
 
 const app = express();
 const http = require('http').createServer(app);
@@ -33,11 +36,33 @@ const decrypt = (hash) => {
 app.use(cors());
 app.use(express.json());
 
-// Socket.io connection
+// Socket.io connection with Authentication Middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error('Authentication error: No token provided'));
+  }
+  
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return next(new Error('Authentication error: Invalid token'));
+    }
+    socket.user = decoded;
+    next();
+  });
+});
+
 io.on('connection', (socket) => {
+  console.log(`Socket connected securely for user: ${socket.user.username}`);
+  
   socket.on('join', (userId) => {
-    socket.join(`user_${userId}`);
-    console.log(`User ${userId} joined their room`);
+    // Ensure clients can only join their own room
+    if (String(socket.user.id) === String(userId)) {
+      socket.join(`user_${userId}`);
+      console.log(`User ${userId} joined their secure room`);
+    } else {
+      console.warn(`Unauthorized room join attempt by user ${socket.user.id} for room ${userId}`);
+    }
   });
 });
 
@@ -86,8 +111,8 @@ app.post('/api/auth/login', async (req, res) => {
     const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET);
     res.json({ token, user: { id: user.id, username: user.username } });
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: 'Server error: ' + err.message });
+    console.error('Login Error:', err);
+    res.status(500).json({ message: 'Server error during login', error: err.message });
   }
 });
 
@@ -149,10 +174,26 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
       title: decrypt(n.title),
       content: decrypt(n.content),
       is_revealed: n.is_revealed ? 1 : 0,
-      is_seen: !!n.is_seen
+      is_seen: unseenForRecipient.some(u => u.id === n.id) ? true : n.is_seen
     }));
 
-    res.json(decryptedNotes);
+    // Generate temporary signed URLs for any notes with media
+    const notesWithMedia = await Promise.all(decryptedNotes.map(async (n) => {
+      let media_signed_url = null;
+      if (n.media_url) {
+        const { data, error } = await supabase.storage
+          .from('note-media')
+          .createSignedUrl(n.media_url, 60 * 60); // 1 hour validity
+        if (data) {
+          media_signed_url = data.signedUrl;
+        } else {
+          console.error("Error signing URL:", error);
+        }
+      }
+      return { ...n, media_signed_url };
+    }));
+
+    res.json(notesWithMedia);
   } catch (err) {
     console.error('Get notes error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -160,7 +201,7 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/notes', authenticateToken, async (req, res) => {
-  const { title, content, color, recipient_username, is_revealed } = req.body;
+  const { title, content, color, recipient_username, is_revealed, media_url, media_type } = req.body;
   
   try {
     let recipient_id = null;
@@ -177,16 +218,10 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
     if (!recipient_id) {
        const { data: others } = await supabase
          .from('users')
-         .select('id, username')
-         .neq('id', req.user.id);
-       
-       if (others && others.length > 0) {
-         recipient_id = others[0].id;
-         console.log(`Auto-assigned recipient: ${others[0].username} (ID: ${others[0].id})`);
-         if (others.length > 1) {
-           console.warn(`⚠️ WARNING: Found ${others.length} other users. Picking the first one: ${others[0].username}. Consider deleting extra users from Supabase!`);
-         }
-       }
+         .select('id')
+         .neq('id', req.user.id)
+         .limit(1);
+       if (others && others.length > 0) recipient_id = others[0].id;
     }
 
     console.log(`Creating note for author ${req.user.id} to recipient ${recipient_id}`);
@@ -202,7 +237,9 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
         color: color || 'bg-[#ffb7b2]',
         author_id: req.user.id,
         recipient_id,
-        is_revealed: is_revealed || false
+        is_revealed: is_revealed || false,
+        media_url: media_url || null,
+        media_type: media_type || null
       })
       .select()
       .single();
@@ -224,6 +261,31 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/upload', authenticateToken, upload.single('media'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    
+    // Create unique filename
+    const fileExt = req.file.originalname.split('.').pop() || 'tmp';
+    const fileName = `${req.user.id}-${Date.now()}.${fileExt}`;
+    
+    // Upload directly to Supabase Storage buffer
+    const { error } = await supabase.storage
+      .from('note-media')
+      .upload(fileName, req.file.buffer, { 
+        contentType: req.file.mimetype,
+        upsert: false // Don't overwrite existing
+      });
+      
+    if (error) throw error;
+    
+    res.json({ media_url: fileName, media_type: req.file.mimetype });
+  } catch (err) {
+    console.error('Media upload error:', err);
+    res.status(500).json({ message: 'Media upload failed', error: err.message });
+  }
+});
+
 app.put('/api/notes/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { title, content, color } = req.body;
@@ -236,7 +298,7 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
       .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (String(note.author_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only author can edit' });
+    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can edit' });
 
     const encryptedTitle = encrypt(title);
     const encryptedContent = encrypt(content);
@@ -267,7 +329,7 @@ app.patch('/api/notes/:id/reveal', authenticateToken, async (req, res) => {
       .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (String(note.author_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only author can reveal' });
+    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can reveal' });
 
     await supabase
       .from('notes')
@@ -296,7 +358,7 @@ app.patch('/api/notes/:id/seen', authenticateToken, async (req, res) => {
     if (!note) return res.status(404).json({ message: 'Note not found' });
     
     // Only recipient can mark as seen
-    if (String(note.recipient_id) !== String(req.user.id)) return res.status(403).json({ message: 'Unauthorized' });
+    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Unauthorized' });
 
     if (!note.is_seen) {
       await supabase.from('notes').update({ is_seen: true }).eq('id', id);
@@ -320,7 +382,7 @@ app.patch('/api/notes/:id/unreveal', authenticateToken, async (req, res) => {
       .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (String(note.author_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only author can unreveal' });
+    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can unreveal' });
 
     await supabase
       .from('notes')
@@ -347,7 +409,7 @@ app.patch('/api/notes/:id/like', authenticateToken, async (req, res) => {
   try {
     const { data: note } = await supabase.from('notes').select('*').eq('id', id).single();
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (String(note.recipient_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only recipient can like' });
+    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Only recipient can like' });
 
     await supabase.from('notes').update({ is_liked: true }).eq('id', id);
 
@@ -364,7 +426,7 @@ app.patch('/api/notes/:id/unlike', authenticateToken, async (req, res) => {
   try {
     const { data: note } = await supabase.from('notes').select('*').eq('id', id).single();
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (String(note.recipient_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only recipient can unlike' });
+    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Only recipient can unlike' });
 
     await supabase.from('notes').update({ is_liked: false }).eq('id', id);
     res.json({ message: 'Note unliked' });
@@ -384,7 +446,7 @@ app.delete('/api/notes/:id', authenticateToken, async (req, res) => {
       .single();
 
     if (!note) return res.status(404).json({ message: 'Note not found' });
-    if (String(note.author_id) !== String(req.user.id)) return res.status(403).json({ message: 'Only author can delete' });
+    if (note.author_id !== req.user.id) return res.status(403).json({ message: 'Only author can delete' });
 
     await supabase
       .from('notes')

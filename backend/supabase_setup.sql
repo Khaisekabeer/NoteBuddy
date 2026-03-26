@@ -21,10 +21,52 @@ CREATE TABLE IF NOT EXISTS notes (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Enable Row Level Security (RLS) but allow all for now
+-- Enable Row Level Security (RLS)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 
--- Create permissive policies (you can tighten these later)
-CREATE POLICY "Allow all operations on users" ON users FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on notes" ON notes FOR ALL USING (true) WITH CHECK (true);
+-- 🛡️ SECURITY UPDATE: Restrict anonymous access. 
+-- Since we use a custom Node.js backend with its own JWT, 
+-- we only want the backend (using the Service Role key or Authenticated role if properly configured) to access data.
+-- The 'anon' role (public website users) should NOT have direct DB access.
+
+-- Drop old permissive policies (if they exist)
+DROP POLICY IF EXISTS "Allow all operations on users" ON users;
+DROP POLICY IF EXISTS "Allow all operations on notes" ON notes;
+
+-- Create policies that ONLY allow the Supabase 'service_role' (your backend admin)
+-- Note: To fully secure this, ensure your backend uses the SERVICE_ROLE_KEY, 
+-- or stick to ANON key but we must then rely on the Node backend not exposing the Anon key to the frontend.
+-- Right now, since the Node backend does the data fetching, we can restrict to 'authenticated' or 'service_role'.
+-- The simplest strict security for a custom Node backend is to deny 'anon' access.
+
+CREATE POLICY "Allow Service Role to manage users" ON users FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "Allow Service Role to manage notes" ON notes FOR ALL USING (auth.role() = 'service_role');
+
+-- If your backend uses the ANON key (which it currently does based on db.js), 
+-- and you don't want to change to the Service Key yet, you can restrict by IP or remove direct RLS 
+-- if all requests go exclusively through your Node.js server. 
+-- For a Node.js middleware architecture, the safest route is:
+-- 1. Node.js uses SERVICE_ROLE_KEY.
+-- 2. Frontend ONLY talks to Node.js (never direct to Supabase).
+-- 3. RLS blocks all 'anon' requests.
+
+-- ==========================================
+-- =        PHASE 3: MEDIA SUPPORT          =
+-- ==========================================
+
+-- 1. Add media columns to notes table
+ALTER TABLE notes 
+ADD COLUMN IF NOT EXISTS media_url TEXT,
+ADD COLUMN IF NOT EXISTS media_type TEXT;
+
+-- 2. Create the Private Storage Bucket for photos/videos
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('note-media', 'note-media', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- 3. Allow Service Role to manage the storage bucket 
+-- (Our Node backend will handle all uploads and generate signed URLs for viewing)
+CREATE POLICY "Service Role Storage Policy"
+ON storage.objects FOR ALL 
+USING (bucket_id = 'note-media' AND auth.role() = 'service_role');

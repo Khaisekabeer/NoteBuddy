@@ -29,9 +29,10 @@ export const api = {
     return res.json();
   },
 
-  getNotes: async (view) => {
+  getNotes: async (optionalToken, view) => {
+    const token = optionalToken || localStorage.getItem('token');
     const res = await fetch(`/api/notes${view ? `?view=${view}` : ''}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     return res.json();
   },
@@ -109,6 +110,25 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword })
     });
     return res.json();
+  },
+
+  uploadMedia: async (file) => {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+
+    const formData = new FormData();
+    formData.append('media', file);
+
+    const res = await fetch(`${API_URL}/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Upload failed');
+    return data;
   },
 
   logout: () => {
