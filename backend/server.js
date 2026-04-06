@@ -168,8 +168,8 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
       recipient_name: n.recipient?.username,
       title: decrypt(n.title),
       content: decrypt(n.content),
-      is_revealed: n.is_revealed ? 1 : 0,
-      is_seen: n.is_seen ? 1 : 0,
+      is_revealed: !!n.is_revealed,
+      is_seen: !!n.is_seen,
       media: n.media || []
     }));
 

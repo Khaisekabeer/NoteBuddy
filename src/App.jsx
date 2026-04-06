@@ -257,7 +257,7 @@ function App() {
       title: note.title,
       content: note.content,
       color: note.color,
-      is_revealed: note.is_revealed === 1,
+      is_revealed: !!note.is_revealed,
       recipient_username: note.recipient_name || ''
     });
     // Load existing media into mediaFiles state for editing/deletion
@@ -401,7 +401,7 @@ function App() {
           )}>
             <div className="relative">
               <StickyNote size={view === 'friend' ? 24 : 22} />
-              {notes.some(n => String(n.author_id) !== String(currentUser.id) && n.is_revealed === 1 && !n.is_seen) && (
+              {notes.some(n => String(n.author_id) !== String(currentUser.id) && !!n.is_revealed && !n.is_seen) && (
                 <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-400 rounded-full border-2 border-white animate-ping" />
               )}
             </div>
@@ -420,12 +420,12 @@ function App() {
            <div className="h-4 w-full bg-white rounded-full overflow-hidden shadow-sm border border-primary/10 mb-2">
               <motion.div 
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 1000) * 100, 100)}%` }}
+                animate={{ width: `${Math.min((notes.filter(n => !!n.is_revealed).length / 1000) * 100, 100)}%` }}
                 className="h-full bg-gradient-to-r from-primary to-secondary"
               />
            </div>
            <p className="text-[10px] font-bold text-gray-400 text-center">
-             {notes.filter(n => n.is_revealed === 1).length} shared memories so far... 💖
+             {notes.filter(n => !!n.is_revealed).length} shared memories so far... 💖
            </p>
         </div>
       </aside>
@@ -492,7 +492,7 @@ function App() {
                          <motion.div 
                            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 w-full"
                            initial={{ height: 0 }}
-                           animate={{ height: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 1000) * 100, 100)}%` }}
+                           animate={{ height: `${Math.min((notes.filter(n => !!n.is_revealed).length / 1000) * 100, 100)}%` }}
                            transition={{ type: "spring", stiffness: 50, damping: 20 }}
                          />
                          {/* Glass Shine */}

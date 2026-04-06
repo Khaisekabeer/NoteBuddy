@@ -206,7 +206,7 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
             </span>
           </div>
           {/* Seen badge — shown to author */}
-          {isOwner && note.is_seen && (
+          {!!isOwner && !!note.is_seen && (
             <span className="flex items-center gap-1 text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 shrink-0">
               <Eye size={10} /> Seen
             </span>
@@ -215,7 +215,7 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Like button — shown to recipient on revealed notes */}
-          {!isOwner && note.is_revealed && (
+          {!isOwner && !!note.is_revealed && (
             <button
               onClick={(e) => { e.stopPropagation(); note.is_liked ? onUnlike(note.id) : onLike(note.id); }}
               className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl font-black transition-all active:scale-90 border-2 ${
@@ -230,13 +230,13 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
           )}
 
           {/* Liked badge — shown to author when recipient liked */}
-          {isOwner && note.is_liked && (
+          {!!isOwner && !!note.is_liked && (
             <span className="flex items-center gap-1 text-[10px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
               <Heart size={10} fill="currentColor" /> Liked!
             </span>
           )}
 
-          {isOwner && !note.is_revealed && (
+          {!!isOwner && !note.is_revealed && (
             <button
               onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
               className="flex items-center gap-2 text-xs bg-primary text-white hover:bg-primary-dark px-4 py-2 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-4 border-black/20"
@@ -245,7 +245,7 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
             </button>
           )}
 
-          {isOwner && note.is_revealed && (
+          {!!isOwner && !!note.is_revealed && (
             <button
               onClick={(e) => { e.stopPropagation(); handleRevealClick(); }}
               className="flex items-center gap-2 text-xs bg-amber-500 text-white hover:bg-amber-600 px-4 py-2 rounded-xl transition-all font-black shadow-lg active:scale-95 border-b-4 border-black/20"
@@ -254,7 +254,7 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
             </button>
           )}
 
-          {!isOwner && note.is_revealed && (
+          {!isOwner && !!note.is_revealed && (
             <div className="flex items-center gap-1 text-[10px] font-black text-green-800 bg-green-100 px-3 py-1.5 rounded-lg shadow-inner border border-green-200">
               REVEALED 🌹
             </div>
