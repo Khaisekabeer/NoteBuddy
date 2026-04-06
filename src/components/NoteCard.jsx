@@ -107,7 +107,7 @@ const MediaCarousel = ({ media }) => {
 };
 
 const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, currentUser, onDelete, onEdit }) => {
-  const isOwner = note.author_id === currentUser.id;
+  const isOwner = String(note.author_id) === String(currentUser.id);
   const [isExpanded, setIsExpanded] = useState(false);
   
   const formatDate = (dateString) => {

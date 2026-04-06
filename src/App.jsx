@@ -420,7 +420,7 @@ function App() {
            <div className="h-4 w-full bg-white rounded-full overflow-hidden shadow-sm border border-primary/10 mb-2">
               <motion.div 
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 100) * 100, 100)}%` }}
+                animate={{ width: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 1000) * 100, 100)}%` }}
                 className="h-full bg-gradient-to-r from-primary to-secondary"
               />
            </div>
@@ -492,7 +492,7 @@ function App() {
                          <motion.div 
                            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 w-full"
                            initial={{ height: 0 }}
-                           animate={{ height: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 100) * 100, 100)}%` }}
+                           animate={{ height: `${Math.min((notes.filter(n => n.is_revealed === 1).length / 1000) * 100, 100)}%` }}
                            transition={{ type: "spring", stiffness: 50, damping: 20 }}
                          />
                          {/* Glass Shine */}

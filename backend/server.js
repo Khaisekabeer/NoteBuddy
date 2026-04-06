@@ -162,11 +162,6 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
-    // Identify which notes are unseen for the recipient (for frontend calculation)
-    const unseenForRecipient = notes.filter(
-      n => n.recipient_id === req.user.id && n.is_revealed && !n.is_seen
-    );
-
     const decryptedNotes = notes.map(n => ({
       ...n,
       author_name: n.author?.username,
@@ -174,7 +169,7 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
       title: decrypt(n.title),
       content: decrypt(n.content),
       is_revealed: n.is_revealed ? 1 : 0,
-      is_seen: unseenForRecipient.some(u => u.id === n.id) ? true : n.is_seen,
+      is_seen: n.is_seen ? 1 : 0,
       media: n.media || []
     }));
 
