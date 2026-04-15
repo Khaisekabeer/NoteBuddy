@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../services/api';
 import FloatingHearts from './FloatingHearts';
+import { useAuth } from '../context/AuthContext';
 
-const AuthScreen = ({ onLogin }) => {
+const AuthScreen = () => {
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,7 +16,7 @@ const AuthScreen = ({ onLogin }) => {
     try {
       const data = await api.login(username, password);
       
-      if (data.user) onLogin(data.user);
+      if (data.user) login(data.user, data.token);
       else setError(data.message || 'Login failed');
     } catch (err) {
       setError('Something went wrong. Is the backend running?');

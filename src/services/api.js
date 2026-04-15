@@ -20,18 +20,11 @@ export const api = {
     return data;
   },
 
-  register: async (username, password) => {
-    const res = await fetch(`${API_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    return res.json();
-  },
-
+  // Note: Registration is handled via direct DB admin or legacy methods for this private app.
+  
   getNotes: async (optionalToken, view) => {
     const token = optionalToken || localStorage.getItem('token');
-    const res = await fetch(`/api/notes${view ? `?view=${view}` : ''}`, {
+    const res = await fetch(`${API_URL}/notes${view ? `?view=${view}` : ''}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     return res.json();
@@ -56,7 +49,7 @@ export const api = {
   },
 
   markAsSeen: async (id) => {
-    const res = await fetch(`/api/notes/${id}/seen`, {
+    const res = await fetch(`${API_URL}/notes/${id}/seen`, {
       method: 'PATCH',
       headers: getHeaders()
     });
