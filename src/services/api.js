@@ -71,7 +71,7 @@ export const api = {
     return res.json();
   },
 
-  unrevelNote: async (id) => {
+  unrevealNote: async (id) => {
     const res = await fetch(`${API_URL}/notes/${id}/unreveal`, {
       method: 'PATCH',
       headers: getHeaders()

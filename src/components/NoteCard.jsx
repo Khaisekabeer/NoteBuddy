@@ -108,7 +108,8 @@ const MediaCarousel = ({ media }) => {
 
 const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, currentUser, onDelete, onEdit }) => {
   const isOwner = String(note.author_id) === String(currentUser.id);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isTextExpanded, setIsTextExpanded] = useState(false);
+  const [isMediaExpanded, setIsMediaExpanded] = useState(false);
   
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -142,8 +143,8 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
         note.color
       )}
       onClick={() => {
-        setIsExpanded(!isExpanded);
-        if (!isExpanded && onSeen) onSeen(note.id);
+        setIsTextExpanded(!isTextExpanded);
+        if (!isTextExpanded && onSeen) onSeen(note.id);
       }}
     >
       <div className="absolute top-4 right-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex gap-2 z-10">
@@ -173,22 +174,40 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
         </div>
         
         <p className="text-sm leading-relaxed font-bold text-gray-800 bg-white/20 p-3 rounded-2xl backdrop-blur-sm border border-white/30 break-words whitespace-pre-wrap">
-          {isExpanded ? note.content : getPreview(note.content)}
+          {isTextExpanded ? note.content : getPreview(note.content)}
         </p>
         
-        {note.media && note.media.length > 0 && isExpanded && (
-          <MediaCarousel media={note.media} />
-        )}
-
-        {!isExpanded && note.media && note.media.length > 0 && (
-          <div className="mt-3 flex gap-1">
-            <div className="px-2 py-1 bg-white/40 backdrop-blur-sm rounded-lg border border-white/20 text-[9px] font-black text-primary uppercase tracking-tighter">
-               {note.media.length} {note.media.length === 1 ? 'Memory' : 'Memories'} Attached ✨
+        {note.media && note.media.length > 0 && isMediaExpanded && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <MediaCarousel media={note.media} />
+            <div className="mt-2 text-right">
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsMediaExpanded(false); }}
+                className="text-[10px] font-black text-gray-500 uppercase hover:text-primary transition-colors hover:bg-white/50 px-2 py-1 rounded-full"
+              >
+                Close Memories ✖
+              </button>
             </div>
           </div>
         )}
 
-        {isExpanded && !note.media?.length && note.content.split(' ').length > 5 && (
+        {!isMediaExpanded && note.media && note.media.length > 0 && (
+          <div className="mt-3 flex gap-1">
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setIsMediaExpanded(true); 
+                if (onSeen) onSeen(note.id);
+              }}
+              className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 backdrop-blur-sm rounded-xl border border-primary/20 text-xs font-black text-primary uppercase tracking-wider transition-all transform active:scale-95 flex flex-wrap items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+               <ImageIcon size={14} />
+               View {note.media.length} {note.media.length === 1 ? 'Memory' : 'Memories'} ✨
+            </button>
+          </div>
+        )}
+
+        {isTextExpanded && !note.media?.length && note.content.split(' ').length > 5 && (
           <p className="text-xs text-primary font-black mt-2 text-center">
             Tap to read more ↓
           </p>

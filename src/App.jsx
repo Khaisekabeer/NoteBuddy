@@ -12,6 +12,7 @@ import FloatingHearts from './components/FloatingHearts'
 import InaugurationCeremony from './components/InaugurationCeremony'
 import AuthScreen from './components/AuthScreen'
 import NoteCard from './components/NoteCard'
+import { Toaster, toast } from 'react-hot-toast'
 
 
 // Initialize socket without auto-connecting yet
@@ -112,10 +113,17 @@ function App() {
       
       socket.emit('join', currentUser.id);
 
-      const handleNoteRevealed = () => { fetchNotes(); triggerConfetti(); };
+      const handleNoteRevealed = () => { 
+        fetchNotes(); 
+        triggerConfetti(); 
+        toast.success(`A memory was revealed! 💖`, { style: { borderRadius: '1rem', background: '#ffb7b2', color: '#fff', fontWeight: 'bold' }, iconTheme: { primary: '#fff', secondary: '#ffb7b2' } });
+      };
       const handleNoteUnrevealed = () => { fetchNotes(); };
       const handleNoteSeen = () => { fetchNotes(); };
-      const handleNoteLiked = () => { fetchNotes(); };
+      const handleNoteLiked = () => { 
+        fetchNotes(); 
+        toast.success('Your memory got a heart! ❤️', { style: { borderRadius: '1rem', background: '#ffe4e1', color: '#ff69b4', fontWeight: 'bold' }, iconTheme: { primary: '#ff69b4', secondary: '#fff' } });
+      };
 
       socket.on('note_revealed', handleNoteRevealed);
       socket.on('note_unrevealed', handleNoteUnrevealed);
@@ -163,14 +171,17 @@ function App() {
     }
   };
 
-  const handleSeen = async (id) => {
-    const note = notes.find(n => n.id === id);
-    // Only mark as seen if it's a revealed note from someone else and not already seen
-    if (note && String(note.author_id) !== String(currentUser.id) && note.is_revealed && !note.is_seen) {
-      await api.markAsSeen(id);
-      fetchNotes();
-    }
-  };
+    const handleSeen = async (id) => {
+      const note = notes.find(n => n.id === id);
+      if (note && String(note.author_id) !== String(currentUser.id) && note.is_revealed && !note.is_seen) {
+        // Optimistically complete to make red dot disappear instantly
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, is_seen: true } : n));
+        await api.markAsSeen(id);
+        // We don't strictly need fetchNotes() here immediately as optimistic update handles it visually
+        // but it's good to ensure sync eventually.
+        fetchNotes();
+      }
+    };
 
   const triggerConfetti = () => {
     const end = Date.now() + 2 * 1000;
@@ -276,7 +287,7 @@ function App() {
   }
 
   const handleUnreveal = async (id) => {
-    await api.unrevelNote(id);
+    await api.unrevealNote(id);
     fetchNotes();
   }
 
@@ -345,7 +356,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row font-cute text-text overflow-hidden relative">
-
+      <Toaster position="top-center" />
       <FloatingHearts />
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/30 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-secondary/50 rounded-full blur-[100px] pointer-events-none" />

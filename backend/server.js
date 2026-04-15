@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -173,16 +173,44 @@ app.get('/api/notes', authenticateToken, async (req, res) => {
       media: n.media || []
     }));
 
-    // Generate temporary signed URLs for all media items
-    const notesWithMedia = await Promise.all(decryptedNotes.map(async (n) => {
-      const mediaWithUrls = await Promise.all(n.media.map(async (m) => {
-        const { data, error } = await supabase.storage
-          .from('note-media')
-          .createSignedUrl(m.url, 60 * 60);
-        return { ...m, signed_url: data?.signedUrl || null };
+    // 🚀 PERFORMANCE FIX: Use createSignedUrls to fetch all signed URLs in one single bulk request!
+    // This prevents the massive N+1 query lag that causes significant latency.
+    const mediaPaths = [];
+    decryptedNotes.forEach(n => {
+      if (n.media && n.media.length > 0) {
+        n.media.forEach(m => {
+          if (m.url) mediaPaths.push(m.url);
+        });
+      }
+    });
+
+    const uniquePaths = [...new Set(mediaPaths)];
+    let signedUrlsMap = {};
+
+    if (uniquePaths.length > 0) {
+      // Fetch signed URLs in a single batch call from Supabase
+      const { data: signedUrlsData, error: urlError } = await supabase.storage
+        .from('note-media')
+        .createSignedUrls(uniquePaths, 60 * 60);
+
+      if (!urlError && signedUrlsData) {
+        signedUrlsData.forEach(item => {
+          if (item.signedUrl) {
+            signedUrlsMap[item.path] = item.signedUrl;
+          }
+        });
+      } else if (urlError) {
+        console.error('Bulk generate signed URLs error:', urlError);
+      }
+    }
+
+    const notesWithMedia = decryptedNotes.map(n => {
+      const mediaWithUrls = n.media.map(m => ({
+        ...m,
+        signed_url: signedUrlsMap[m.url] || null
       }));
       return { ...n, media: mediaWithUrls };
-    }));
+    });
 
     res.json(notesWithMedia);
   } catch (err) {
@@ -353,7 +381,7 @@ app.patch('/api/notes/:id/seen', authenticateToken, async (req, res) => {
     if (!note) return res.status(404).json({ message: 'Note not found' });
     
     // Only recipient can mark as seen
-    if (note.recipient_id !== req.user.id) return res.status(403).json({ message: 'Unauthorized' });
+    if (String(note.recipient_id) !== String(req.user.id)) return res.status(403).json({ message: 'Unauthorized' });
 
     if (!note.is_seen) {
       await supabase.from('notes').update({ is_seen: true }).eq('id', id);

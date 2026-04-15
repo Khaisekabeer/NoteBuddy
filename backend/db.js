@@ -7,6 +7,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABAS
 
 if (!supabaseKey) {
   console.error('❌ FATAL: SUPABASE_SERVICE_ROLE_KEY (or ANON_KEY) is not defined!');
+  console.error('👉 Make sure you have a .env file in the backend directory with these variables set.');
   process.exit(1);
 }
 

@@ -13,6 +13,7 @@ const AuthScreen = ({ onLogin }) => {
     setError('');
     try {
       const data = await api.login(username, password);
+      
       if (data.user) onLogin(data.user);
       else setError(data.message || 'Login failed');
     } catch (err) {
@@ -62,7 +63,8 @@ const AuthScreen = ({ onLogin }) => {
              />
            </div>
            {error && <p className="text-red-500 text-xs font-black text-center animate-bounce">{error}</p>}
-           <button className="btn-cute bg-primary text-white justify-center py-4 shadow-2xl shadow-primary/40 border-b-4 border-primary/20 active:border-b-0 hover:scale-[1.02]">
+           
+           <button type="submit" className="btn-cute bg-primary text-white justify-center py-4 shadow-2xl shadow-primary/40 border-b-4 border-primary/20 active:border-b-0 hover:scale-[1.02] mt-2">
              Unlock Our Memories 🔑
            </button>
         </form>
