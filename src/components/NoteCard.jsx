@@ -125,14 +125,20 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
     const date = new Date(str);
     if (isNaN(date.getTime())) return 'Invalid Date';
 
-    return date.toLocaleString('en-IN', { 
-      timeZone: 'Asia/Kolkata',
-      month: 'short', 
-      day: 'numeric', 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    });
+    // Manual IST Calculation (UTC + 5:30)
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(date.getTime() + IST_OFFSET);
+    
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[istDate.getUTCMonth()];
+    const day = istDate.getUTCDate();
+    let hours = istDate.getUTCHours();
+    const minutes = istDate.getUTCMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+
+    return `${month} ${day}, ${hours}:${minutes} ${ampm}`;
   };
 
   const getPreview = (text) => {

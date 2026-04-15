@@ -174,15 +174,24 @@ export default function Dashboard() {
         str += 'Z';
       }
     }
-    const dateStr = new Date(str).toLocaleString('en-IN', { 
-      timeZone: 'Asia/Kolkata',
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const date = new Date(str);
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(date.getTime() + IST_OFFSET);
+    
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    const dayName = days[istDate.getUTCDay()];
+    const monthName = months[istDate.getUTCMonth()];
+    const day = istDate.getUTCDate();
+    const year = istDate.getUTCFullYear();
+    let hours = istDate.getUTCHours();
+    const minutes = istDate.getUTCMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+
+    const dateStr = `${dayName}, ${monthName} ${day}, ${year} ${hours}:${minutes} ${ampm}`;
     const matchesSearch = n.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          n.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          dateStr.toLowerCase().includes(searchTerm.toLowerCase());
