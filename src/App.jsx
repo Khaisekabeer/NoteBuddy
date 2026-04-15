@@ -562,7 +562,8 @@ function App() {
                     key={draft.id}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 0.7, scale: 1 }}
-                    className={`${draft.color} rounded-3xl p-5 min-h-[180px] flex flex-col justify-between border-2 border-dashed border-amber-400 relative`}
+                    className={`${draft.color?.startsWith('bg-') ? draft.color : ''} rounded-3xl p-5 min-h-[180px] flex flex-col justify-between border-2 border-dashed border-amber-400 relative`}
+                    style={{ backgroundColor: draft.color && !draft.color.startsWith('bg-') ? draft.color : undefined }}
                   >
                     <div>
                       <h4 className="font-extrabold text-base text-gray-800 mb-2">{draft.title}</h4>
@@ -665,7 +666,7 @@ function App() {
 
                 <div className="flex flex-col gap-2">
                   <p className="text-[10px] font-bold text-primary uppercase px-1 tracking-widest">Theme Color</p>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-3 items-center">
                     {[
                       'bg-[#ffb7b2]', 'bg-[#b2e2f2]', 'bg-[#d1e9cf]', 'bg-[#ffccb6]', 'bg-[#fdfd96]',
                       'bg-gradient-to-br from-pink-200 to-rose-300', 
@@ -674,8 +675,21 @@ function App() {
                       'bg-gradient-to-br from-amber-200 to-orange-300',
                       'bg-gradient-to-br from-purple-200 to-fuchsia-300'
                     ].map(color => (
-                      <button key={color} onClick={() => setNewNote({...newNote, color})} className={cn("w-10 h-10 rounded-2xl border-4 transition-all active:scale-90 shadow-md", color, newNote.color === color ? "border-primary scale-110 shadow-lg" : "border-white")} />
+                      <button key={color} onClick={() => setNewNote({...newNote, color})} className={cn("w-10 h-10 rounded-2xl border-4 transition-all active:scale-90 shadow-md", color.startsWith('bg-') ? color : '', newNote.color === color ? "border-primary scale-110 shadow-lg" : "border-white")} style={{ backgroundColor: color.startsWith('bg-') ? undefined : color }} />
                     ))}
+                    
+                    {/* Custom Picker */}
+                    <div className="relative w-10 h-10 rounded-2xl border-4 border-white shadow-md overflow-hidden cursor-pointer flex-shrink-0" title="Custom color">
+                       <input 
+                         type="color" 
+                         value={newNote.color?.startsWith('#') ? newNote.color : '#ffffff'} 
+                         onChange={(e) => setNewNote({...newNote, color: e.target.value})}
+                         className="absolute -top-4 -left-4 w-20 h-20 cursor-pointer"
+                       />
+                       {newNote.color?.startsWith('#') && (
+                         <div className="absolute inset-0 border-4 border-primary rounded-xl pointer-events-none" />
+                       )}
+                    </div>
                   </div>
                 </div>
 

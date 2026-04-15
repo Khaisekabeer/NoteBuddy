@@ -140,8 +140,9 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
       whileHover={{ y: -10, rotateZ: 1, scale: 1.02, transition: { type: "spring", stiffness: 300 } }}
       className={cn(
         "card-cute min-h-[220px] flex flex-col justify-between relative group shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-t-2 border-white/80 cursor-pointer transition-all duration-300",
-        note.color
+        note.color?.startsWith('bg-') ? note.color : ''
       )}
+      style={{ backgroundColor: note.color && !note.color.startsWith('bg-') ? note.color : undefined }}
       onClick={() => {
         setIsTextExpanded(!isTextExpanded);
         if (!isTextExpanded && onSeen) onSeen(note.id);
@@ -211,6 +212,17 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
           <p className="text-xs text-gray-500 font-black mt-2 text-center">
             Tap to read more ↓
           </p>
+        )}
+
+        {!isOwner && !note.is_seen && !!note.is_revealed && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} 
+            className="mt-3 flex justify-center"
+          >
+            <span className="text-[10px] text-blue-600 font-black px-4 py-1.5 bg-blue-100/50 border border-blue-200 rounded-full animate-pulse shadow-sm">
+               Tap card to mark as read ✓
+            </span>
+          </motion.div>
         )}
       </div>
 
