@@ -217,6 +217,13 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <button 
+          onClick={() => setIsAdding(true)} 
+          className="hidden md:flex btn-cute bg-primary text-white justify-center py-4 px-6 rounded-[2rem] shadow-xl shadow-primary/20 font-black border-b-4 border-primary/40 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest gap-2"
+        >
+          <Plus size={20} /> Write Note 💌
+        </button>
+
         <nav className="flex flex-row md:flex-col gap-2 flex-1 items-center md:items-stretch justify-around md:justify-start">
           <button onClick={() => setView('mine')} className={cn(
             "btn-cute justify-center md:justify-start shadow-none flex-1 md:flex-none py-3 md:py-4 px-2 md:px-6 rounded-[2rem] transition-all",
@@ -520,7 +527,11 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                <button onClick={handleAddNote} disabled={isUploading} className="btn-cute bg-primary text-white justify-center py-4 mt-2 shadow-xl shadow-primary/30 font-bold border-b-4 border-primary/40 hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100">
+                <button 
+                  onClick={handleAddNote} 
+                  disabled={isUploading} 
+                  className="relative z-[80] btn-cute bg-primary text-white justify-center py-4 mt-2 shadow-xl shadow-primary/30 font-black border-b-4 border-primary/40 hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100"
+                >
                   {isUploading ? 'Uploading & Saving... ⏳' : (editingNote ? 'Update Memory ✨' : 'Send Note 💌')}
                 </button>
               </div>
