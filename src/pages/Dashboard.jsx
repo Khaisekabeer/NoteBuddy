@@ -611,9 +611,9 @@ export default function Dashboard() {
                     <ShieldCheck size={12} /> Privacy & Permissions
                   </h4>
                   <p className="text-[10px] font-bold text-gray-500 leading-relaxed">
-                    PWAs may ask for "Display over other apps" or "Background activity" on some mobile devices. 
+                    PWAs(Progressive web apps) may ask for "Display over other apps" or "Background activity"(as like many other apps) on some mobile devices. 
                     This is standard for browsers to ensure notifications and offline syncing work reliably. 
-                    We never track your data or other apps. 🔒
+                    I never track your data or other apps.
                   </p>
                 </div>
 
