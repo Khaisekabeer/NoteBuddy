@@ -167,7 +167,14 @@ export default function Dashboard() {
   };
 
   const filteredNotes = notes.filter(n => {
-    const dateStr = new Date(n.created_at).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const dateStr = new Date(n.created_at).toLocaleString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
     const matchesSearch = n.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          n.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          dateStr.toLowerCase().includes(searchTerm.toLowerCase());
@@ -598,6 +605,17 @@ export default function Dashboard() {
                     {settingsMessage.text}
                   </p>
                 )}
+
+                <div className="mt-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                    <ShieldCheck size={12} /> Privacy & Permissions
+                  </h4>
+                  <p className="text-[10px] font-bold text-gray-500 leading-relaxed">
+                    PWAs may ask for "Display over other apps" or "Background activity" on some mobile devices. 
+                    This is standard for browsers to ensure notifications and offline syncing work reliably. 
+                    We never track your data or other apps. 🔒
+                  </p>
+                </div>
 
                 <div className="flex justify-end gap-3 mt-4">
                    <button type="button" onClick={() => setIsSettingsOpen(false)} className="px-6 py-2 rounded-xl border border-gray-100 font-bold text-gray-400">Cancel</button>

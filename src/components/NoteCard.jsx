@@ -112,8 +112,15 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
   
   const formatDate = (dateString) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
   };
 
   const getPreview = (text) => {
