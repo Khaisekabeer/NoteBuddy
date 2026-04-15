@@ -167,7 +167,14 @@ export default function Dashboard() {
   };
 
   const filteredNotes = notes.filter(n => {
-    const dateStr = new Date(n.created_at).toLocaleString('en-IN', { 
+    let str = n.created_at;
+    if (typeof str === 'string') {
+      str = str.trim().replace(' ', 'T');
+      if (!str.includes('Z') && !str.includes('+') && !str.includes('-')) {
+        str += 'Z';
+      }
+    }
+    const dateStr = new Date(str).toLocaleString('en-IN', { 
       timeZone: 'Asia/Kolkata',
       weekday: 'long', 
       year: 'numeric', 
@@ -614,7 +621,8 @@ export default function Dashboard() {
                   <p className="text-[10px] font-bold text-gray-500 leading-relaxed">
                     PWAs(Progressive web apps) may ask for "Display over other apps" or "Background activity"(as like many other apps) on some mobile devices. 
                     This is standard for browsers to ensure notifications and offline syncing work reliably. 
-                    I never track your data or other apps.
+                    I never track your data or other apps miss cutieeee.
+      
                   </p>
                 </div>
 

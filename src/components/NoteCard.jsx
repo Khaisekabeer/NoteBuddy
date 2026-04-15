@@ -113,7 +113,18 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
   
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
+    
+    let str = dateString;
+    if (typeof str === 'string') {
+      str = str.trim().replace(' ', 'T');
+      if (!str.includes('Z') && !str.includes('+') && !str.includes('-')) {
+        str += 'Z';
+      }
+    }
+    
+    const date = new Date(str);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+
     return date.toLocaleString('en-IN', { 
       timeZone: 'Asia/Kolkata',
       month: 'short', 
