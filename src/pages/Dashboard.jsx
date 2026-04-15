@@ -489,10 +489,7 @@ export default function Dashboard() {
                       {[
                         'bg-[#ffb7b2]', 'bg-[#b2e2f2]', 'bg-[#d1e9cf]', 'bg-[#ffccb6]', 'bg-[#fdfd96]',
                         'bg-gradient-to-br from-pink-200 to-rose-300', 
-                        'bg-gradient-to-br from-blue-200 to-indigo-300', 
-                        'bg-gradient-to-br from-emerald-200 to-teal-300',
-                        'bg-gradient-to-br from-amber-200 to-orange-300',
-                        'bg-gradient-to-br from-purple-200 to-fuchsia-300'
+                        'bg-gradient-to-br from-blue-200 to-indigo-300'
                       ].map(color => (
                         <button 
                           key={color} 
