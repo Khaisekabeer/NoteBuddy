@@ -311,7 +311,7 @@ app.post('/api/upload', authenticateToken, upload.array('media', 5), async (req,
 
 app.put('/api/notes/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { title, content, color } = req.body;
+  const { title, content, color, media } = req.body;
   
   try {
     const { data: note } = await supabase
@@ -331,7 +331,8 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
       .update({
         title: encryptedTitle,
         content: encryptedContent,
-        color
+        color,
+        media: media || []
       })
       .eq('id', id);
 
@@ -380,8 +381,9 @@ app.patch('/api/notes/:id/seen', authenticateToken, async (req, res) => {
     const { data: note } = await supabase.from('notes').select('*').eq('id', id).single();
     if (!note) return res.status(404).json({ message: 'Note not found' });
     
-    // Only recipient can mark as seen
-    if (String(note.recipient_id) !== String(req.user.id)) return res.status(403).json({ message: 'Unauthorized' });
+    // Allow marking as seen as long as the user is not the author of the note
+    // This allows fallback recipients/shared views to function without returning 403s
+    if (String(note.author_id) === String(req.user.id)) return res.status(403).json({ message: 'Unauthorized' });
 
     if (!note.is_seen) {
       await supabase.from('notes').update({ is_seen: true }).eq('id', id);

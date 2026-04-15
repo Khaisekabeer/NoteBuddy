@@ -147,6 +147,7 @@ function App() {
     }
   }, [newNote, editingNote]);
 
+
   const checkAuth = async () => {
     try {
       const res = await fetch('/api/auth/me', {
@@ -664,8 +665,15 @@ function App() {
 
                 <div className="flex flex-col gap-2">
                   <p className="text-[10px] font-bold text-primary uppercase px-1 tracking-widest">Theme Color</p>
-                  <div className="flex gap-2">
-                    {['bg-[#ffb7b2]', 'bg-[#b2e2f2]', 'bg-[#d1e9cf]', 'bg-[#ffccb6]', 'bg-[#fdfd96]'].map(color => (
+                  <div className="flex flex-wrap gap-3">
+                    {[
+                      'bg-[#ffb7b2]', 'bg-[#b2e2f2]', 'bg-[#d1e9cf]', 'bg-[#ffccb6]', 'bg-[#fdfd96]',
+                      'bg-gradient-to-br from-pink-200 to-rose-300', 
+                      'bg-gradient-to-br from-blue-200 to-indigo-300', 
+                      'bg-gradient-to-br from-emerald-200 to-teal-300',
+                      'bg-gradient-to-br from-amber-200 to-orange-300',
+                      'bg-gradient-to-br from-purple-200 to-fuchsia-300'
+                    ].map(color => (
                       <button key={color} onClick={() => setNewNote({...newNote, color})} className={cn("w-10 h-10 rounded-2xl border-4 transition-all active:scale-90 shadow-md", color, newNote.color === color ? "border-primary scale-110 shadow-lg" : "border-white")} />
                     ))}
                   </div>

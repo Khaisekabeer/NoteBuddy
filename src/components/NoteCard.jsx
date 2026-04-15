@@ -54,7 +54,7 @@ const MediaCarousel = ({ media }) => {
                 {item.type.startsWith('video/') ? (
                   <video 
                     src={item.signed_url} 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain bg-black/5"
                     autoPlay={isCenter}
                     muted
                     loop
@@ -64,7 +64,7 @@ const MediaCarousel = ({ media }) => {
                   <img 
                     src={item.signed_url} 
                     alt="" 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain bg-black/5"
                   />
                 )}
                 {!isCenter && <div className="absolute inset-0 bg-black/20" />}
@@ -199,16 +199,16 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
                 setIsMediaExpanded(true); 
                 if (onSeen) onSeen(note.id);
               }}
-              className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 backdrop-blur-sm rounded-xl border border-primary/20 text-xs font-black text-primary uppercase tracking-wider transition-all transform active:scale-95 flex flex-wrap items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-3 py-1.5 bg-white/50 hover:bg-white/80 backdrop-blur-sm rounded-xl border border-primary/30 text-xs font-black text-gray-800 uppercase tracking-wider transition-all transform active:scale-95 flex flex-wrap items-center gap-1.5 cursor-pointer shadow-sm"
             >
-               <ImageIcon size={14} />
+               <ImageIcon className="text-primary" size={14} />
                View {note.media.length} {note.media.length === 1 ? 'Memory' : 'Memories'} ✨
             </button>
           </div>
         )}
 
         {isTextExpanded && !note.media?.length && note.content.split(' ').length > 5 && (
-          <p className="text-xs text-primary font-black mt-2 text-center">
+          <p className="text-xs text-gray-500 font-black mt-2 text-center">
             Tap to read more ↓
           </p>
         )}
