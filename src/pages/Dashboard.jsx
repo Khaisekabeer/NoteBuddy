@@ -167,7 +167,8 @@ export default function Dashboard() {
   };
 
   const filteredNotes = notes.filter(n => {
-    const dateStr = new Date(n.created_at).toLocaleString('en-US', { 
+    const dateStr = new Date(n.created_at).toLocaleString('en-IN', { 
+      timeZone: 'Asia/Kolkata',
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 

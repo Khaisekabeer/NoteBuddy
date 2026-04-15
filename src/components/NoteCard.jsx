@@ -114,7 +114,8 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', { 
+    return date.toLocaleString('en-IN', { 
+      timeZone: 'Asia/Kolkata',
       month: 'short', 
       day: 'numeric', 
       hour: '2-digit', 
