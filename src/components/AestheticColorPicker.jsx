@@ -2,6 +2,12 @@ import React, { useState } from 'react';
 import ColorPicker from 'react-best-gradient-color-picker';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
 
 const AestheticColorPicker = ({ color, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
