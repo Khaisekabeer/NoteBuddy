@@ -142,7 +142,7 @@ const NoteCard = ({ note, onReveal, onUnreveal, onLike, onUnlike, onSeen, curren
         "card-cute min-h-[220px] flex flex-col justify-between relative group shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-t-2 border-white/80 cursor-pointer transition-all duration-300",
         note.color?.startsWith('bg-') ? note.color : ''
       )}
-      style={{ backgroundColor: note.color && !note.color.startsWith('bg-') ? note.color : undefined }}
+      style={{ background: note.color && !note.color.startsWith('bg-') ? note.color : undefined }}
       onClick={() => {
         setIsTextExpanded(!isTextExpanded);
         if (!isTextExpanded && onSeen) onSeen(note.id);

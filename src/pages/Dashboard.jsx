@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNetwork } from '../hooks/useNetwork';
 import { useNotes } from '../hooks/useNotes';
 import { useSockets, triggerConfetti } from '../hooks/useSockets';
+import AestheticColorPicker from '../components/AestheticColorPicker';
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -481,32 +482,36 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <p className="text-[10px] font-bold text-primary uppercase px-1 tracking-widest">Theme Color</p>
-                  <div className="flex flex-wrap gap-3 items-center">
-                    {[
-                      'bg-[#ffb7b2]', 'bg-[#b2e2f2]', 'bg-[#d1e9cf]', 'bg-[#ffccb6]', 'bg-[#fdfd96]',
-                      'bg-gradient-to-br from-pink-200 to-rose-300', 
-                      'bg-gradient-to-br from-blue-200 to-indigo-300', 
-                      'bg-gradient-to-br from-emerald-200 to-teal-300',
-                      'bg-gradient-to-br from-amber-200 to-orange-300',
-                      'bg-gradient-to-br from-purple-200 to-fuchsia-300'
-                    ].map(color => (
-                      <button key={color} onClick={() => setNewNote({...newNote, color})} className={cn("w-10 h-10 rounded-2xl border-4 transition-all active:scale-90 shadow-md", color.startsWith('bg-') ? color : '', newNote.color === color ? "border-primary scale-110 shadow-lg" : "border-white")} style={{ backgroundColor: color.startsWith('bg-') ? undefined : color }} />
-                    ))}
-                    
-                    <div className="relative w-10 h-10 rounded-2xl border-4 border-white shadow-md overflow-hidden cursor-pointer flex-shrink-0" title="Custom color">
-                       <input 
-                         type="color" 
-                         value={newNote.color?.startsWith('#') ? newNote.color : '#ffffff'} 
-                         onChange={(e) => setNewNote({...newNote, color: e.target.value})}
-                         className="absolute -top-4 -left-4 w-20 h-20 cursor-pointer"
-                       />
-                       {newNote.color?.startsWith('#') && (
-                         <div className="absolute inset-0 border-4 border-primary rounded-xl pointer-events-none" />
-                       )}
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[10px] font-bold text-primary uppercase px-1 tracking-widest">Preset vibes</p>
+                    <div className="flex flex-wrap gap-3 items-center">
+                      {[
+                        'bg-[#ffb7b2]', 'bg-[#b2e2f2]', 'bg-[#d1e9cf]', 'bg-[#ffccb6]', 'bg-[#fdfd96]',
+                        'bg-gradient-to-br from-pink-200 to-rose-300', 
+                        'bg-gradient-to-br from-blue-200 to-indigo-300', 
+                        'bg-gradient-to-br from-emerald-200 to-teal-300',
+                        'bg-gradient-to-br from-amber-200 to-orange-300',
+                        'bg-gradient-to-br from-purple-200 to-fuchsia-300'
+                      ].map(color => (
+                        <button 
+                          key={color} 
+                          onClick={() => setNewNote({...newNote, color})} 
+                          className={cn(
+                            "w-10 h-10 rounded-2xl border-4 transition-all active:scale-90 shadow-md", 
+                            color.startsWith('bg-') ? color : '', 
+                            newNote.color === color ? "border-primary scale-110 shadow-lg" : "border-white"
+                          )} 
+                          style={{ backgroundColor: color.startsWith('bg-') ? undefined : color }} 
+                        />
+                      ))}
                     </div>
                   </div>
+
+                  <AestheticColorPicker 
+                    color={newNote.color} 
+                    onChange={(c) => setNewNote({...newNote, color: c})} 
+                  />
                 </div>
 
                 {!editingNote && (
