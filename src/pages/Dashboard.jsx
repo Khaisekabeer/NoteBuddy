@@ -623,17 +623,7 @@ export default function Dashboard() {
                   </p>
                 )}
 
-                <div className="mt-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                    <ShieldCheck size={12} /> Privacy & Permissions
-                  </h4>
-                  <p className="text-[10px] font-bold text-gray-500 leading-relaxed">
-                    PWAs(Progressive web apps) may ask for "Display over other apps" or "Background activity"(as like many other apps) on some mobile devices. 
-                    This is standard for browsers to ensure notifications and offline syncing work reliably. 
-                    I never track your data or other apps miss cutieeee.
-      
-                  </p>
-                </div>
+
 
                 <div className="flex justify-end gap-3 mt-4">
                    <button type="button" onClick={() => setIsSettingsOpen(false)} className="px-6 py-2 rounded-xl border border-gray-100 font-bold text-gray-400">Cancel</button>
